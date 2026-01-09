@@ -321,11 +321,11 @@ class SettingsDialog(QDialog):
         
         # 監視設定タブ (先に設定)
         monitor_tab = self._create_monitor_tab()
-        tabs.addTab(monitor_tab, "📺 監視設定")
+        tabs.addTab(monitor_tab, "監視設定")
         
         # パターン設定タブ
         pattern_tab = self._create_pattern_tab()
-        tabs.addTab(pattern_tab, "🎯 パターン設定")
+        tabs.addTab(pattern_tab, "パターン設定")
         
         layout.addWidget(tabs)
         
@@ -343,7 +343,7 @@ class SettingsDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         
         # 保存ボタン（大事なボタンなので目立たせます）
-        save_btn = QPushButton("💾 設定を保存")
+        save_btn = QPushButton("設定を保存")
         save_btn.setObjectName("primaryBtn")
         save_btn.setMinimumHeight(44)
         save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -373,7 +373,7 @@ class SettingsDialog(QDialog):
         
         # パターン追加ボタン
         # パターン追加ボタン
-        add_btn = QPushButton("➕ パターンを追加")
+        add_btn = QPushButton("✚ パターンを追加")
         add_btn.setObjectName("primaryBtn")
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.clicked.connect(self._add_new_pattern)

@@ -138,18 +138,36 @@ QPushButton#primaryBtn:pressed {{
     background-color: #582bb8;
 }}
 
-/* Danger Button */
+/* Danger Button (Red Gradient) */
 QPushButton#dangerBtn {{
-    background-color: #2b1d1d;
-    color: #ff5f56;
-    border: 1px solid #ff5f56;
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff5252, stop:1 #e53935);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: bold;
+    border: none;
+    min-width: 100px;
 }}
 QPushButton#dangerBtn:hover {{
-    background-color: #ff5f56;
-    color: white;
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff6e6e, stop:1 #f44336);
 }}
 QPushButton#dangerBtn:pressed {{
-    background-color: #ce2c23;
+    background-color: #c62828;
+}}
+
+/* Success Button (Green Gradient) */
+QPushButton#successBtn {{
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #2ecc71, stop:1 #27ae60);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: bold;
+    border: none;
+    min-width: 100px;
+}}
+QPushButton#successBtn:hover {{
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #40d47e, stop:1 #2cc96d);
+}}
+QPushButton#successBtn:pressed {{
+    background-color: #219150;
 }}
 
 /* =======================================================

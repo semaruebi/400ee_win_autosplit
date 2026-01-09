@@ -204,7 +204,7 @@ class MainWindow(QMainWindow):
         # ヘッダー
         header = QHBoxLayout()
         
-        title = QLabel("🎮 AutoSplit GIEEE")
+        title = QLabel("AutoSplit GIEEE")
         title.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
         header.addWidget(title)
         
@@ -246,8 +246,8 @@ class MainWindow(QMainWindow):
         # 開始/停止ボタン
         btn_layout = QHBoxLayout()
         
-        self.start_btn = QPushButton("▶️ 監視スタート")
-        self.start_btn.setObjectName("primaryBtn")
+        self.start_btn = QPushButton("▶ ﾛｰﾄﾞ監視ｽﾀｰﾄ！")
+        self.start_btn.setObjectName("successBtn")
         self.start_btn.setMinimumHeight(50)
         self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.start_btn.clicked.connect(self._toggle_monitoring)
@@ -269,8 +269,7 @@ class MainWindow(QMainWindow):
         match_layout = QVBoxLayout(match_frame)
         
         match_header = QHBoxLayout()
-        match_header.addWidget(QLabel("📊 現在の一致率"))
-        match_header.addWidget(QLabel("📊 現在の一致率"))
+        match_header.addWidget(QLabel("現在の一致率"))
         self.match_pattern_label = QLabel("")
         # スタイル定義済みなので削除
         match_header.addWidget(self.match_pattern_label)
@@ -311,7 +310,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(match_frame)
         
         # パターン一覧
-        patterns_label = QLabel("📋 登録パターン")
+        patterns_label = QLabel("登録パターン")
         patterns_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #aaa;")
         layout.addWidget(patterns_label)
         
@@ -336,15 +335,20 @@ class MainWindow(QMainWindow):
     
     def _setup_tray(self):
         """システムトレイの設定"""
-        pixmap = QPixmap(32, 32)
-        pixmap.fill(QColor(76, 175, 80))
-        painter = QPainter(pixmap)
-        painter.setPen(QColor(255, 255, 255))
-        painter.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "A")
-        painter.end()
-        
-        icon = QIcon(pixmap)
+        # アイコン読み込み
+        icon_path = os.path.join("assets", "icon.png")
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+        else:
+            # フォールバック
+            pixmap = QPixmap(32, 32)
+            pixmap.fill(QColor(76, 175, 80))
+            painter = QPainter(pixmap)
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+            painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "A")
+            painter.end()
+            icon = QIcon(pixmap)
         
         self.tray_icon = QSystemTrayIcon(icon, self)
         self.tray_icon.setToolTip("AutoSplit GIEEE")
@@ -408,10 +412,11 @@ class MainWindow(QMainWindow):
         self.timer_status_label.setText("Timer: Wait...")
         self.timer_status_label.setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
         
-        self.start_btn.setText("⏹️ ストップ")
+        self.start_btn.setText("■ ﾛｰﾄﾞ監視ｽﾄｯﾌﾟ")
         self.start_btn.setObjectName("dangerBtn")
-        # スタイルを強制再適用
-        self.start_btn.setStyleSheet(self.start_btn.styleSheet())
+        # スタイルを再適用
+        self.start_btn.style().unpolish(self.start_btn)
+        self.start_btn.style().polish(self.start_btn)
         
         self.status_indicator.set_status("running")
         self.status_label.setText("監視中")
@@ -426,10 +431,11 @@ class MainWindow(QMainWindow):
         self.timer_status_label.setText("Timer: -")
         self.timer_status_label.setStyleSheet("color: #555; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px; background-color: #222;")
         
-        self.start_btn.setText("▶️ 監視スタート")
-        self.start_btn.setObjectName("primaryBtn")
-        # スタイルを強制再適用
-        self.start_btn.setStyleSheet(self.start_btn.styleSheet())
+        self.start_btn.setText("▶ ﾛｰﾄﾞ監視ｽﾀｰﾄ！")
+        self.start_btn.setObjectName("successBtn")
+        # スタイルを再適用
+        self.start_btn.style().unpolish(self.start_btn)
+        self.start_btn.style().polish(self.start_btn)
         
         self.status_indicator.set_status("stopped")
         self.status_label.setText("停止中")
