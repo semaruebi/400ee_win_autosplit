@@ -7,14 +7,14 @@ import time
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QSystemTrayIcon, QMenu, QFrame,
-    QProgressBar
+    QProgressBar, QMessageBox
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from PyQt6.QtGui import QIcon, QPixmap, QAction, QPainter, QColor, QFont
 from PIL import Image
 
 from config import AppConfig, load_config, save_config
-from capture import ScreenCapture
+from capture import ScreenCapture, check_window_exists
 from detector import detect_all_patterns, DetectionResult, crop_timer_area, images_are_similar
 from hotkey import HotkeyManager
 from gui.settings_dialog import SettingsDialog
@@ -363,6 +363,22 @@ class MainWindow(QMainWindow):
             self.detection_info.setText("⚠️ 検知エリアを設定してください (設定画面)")
             return
         
+        # ウィンドウ存在チェック
+        target_title = self.config.target_window
+        if target_title and not check_window_exists(target_title):
+            # エラー音とポップアップ
+            QApplication.beep()
+            QMessageBox.warning(self, "監視対象が見つかりません", 
+                f"ウィンドウ '{target_title}' が見つかりません。\n\n"
+                "・ゲームが起動しているか確認してください\n"
+                "・管理者権限が必要な場合があります")
+            
+            self.detection_info.setText(f"❌ '{target_title}' が見つかりません")
+            return
+            
+        success_msg = f"✅ '{target_title}' を捕捉しました。監視中..." if target_title else "✅ 全画面を監視中..."
+        self.detection_info.setText(success_msg)
+        
         # ホットキーカウントをリセット
         self._hotkey_count = 0
         
@@ -383,8 +399,7 @@ class MainWindow(QMainWindow):
         
         self.status_indicator.set_status("running")
         self.status_label.setText("監視中")
-
-        self.detection_info.setText("画面を監視しています...")
+        # self.detection_info.setText("画面を監視しています...") # メッセージ上書きを防ぐため削除
     
     def _stop_monitoring(self):
         if self._monitor_thread:
