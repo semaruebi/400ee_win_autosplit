@@ -34,6 +34,15 @@ class PatternConfig:
 
 
 @dataclass
+class TimerArea:
+    """タイマー監視エリア"""
+    x: int = 0  # 0-100%
+    y: int = 0
+    width: int = 20
+    height: int = 10
+
+
+@dataclass
 class AppConfig:
     """アプリケーション設定"""
     patterns: list[PatternConfig] = field(default_factory=list)
@@ -41,11 +50,21 @@ class AppConfig:
     cooldown_ms: int = 2000  # 連続発火防止 (ミリ秒)
     check_interval_ms: int = 50  # 監視間隔 (約20fps)
     area_size: int = 50  # エリアサイズ (px)
+    
+    # LiveSplit監視設定
+    livesplit_window: Optional[str] = None
+    timer_area: TimerArea = field(default_factory=TimerArea)
+    timer_freeze_ms: int = 1000  # タイマー停止判定時間 (ms)
+    auto_stop_enabled: bool = False  # 自動停止機能を有効化
+    min_hotkey_count: int = 3  # 自動停止前の最低ホットキー送信回数
 
     def __post_init__(self):
         # dictからPatternConfigに変換
         if self.patterns and isinstance(self.patterns[0], dict):
             self.patterns = [PatternConfig(**p) for p in self.patterns]
+        # dictからTimerAreaに変換
+        if isinstance(self.timer_area, dict):
+            self.timer_area = TimerArea(**self.timer_area)
 
 
 def get_default_config() -> AppConfig:

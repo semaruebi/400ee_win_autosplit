@@ -2,6 +2,7 @@
 AutoSplit Screen Detector - メインウィンドウ (システムトレイ常駐)
 """
 import sys
+import time
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QSystemTrayIcon, QMenu, QFrame,
@@ -9,10 +10,11 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from PyQt6.QtGui import QIcon, QPixmap, QAction, QPainter, QColor, QFont
+from PIL import Image
 
 from config import AppConfig, load_config, save_config
 from capture import ScreenCapture
-from detector import detect_all_patterns, DetectionResult
+from detector import detect_all_patterns, DetectionResult, crop_timer_area, images_are_similar
 from hotkey import HotkeyManager
 from gui.settings_dialog import SettingsDialog
 
@@ -21,6 +23,7 @@ class MonitorThread(QThread):
     """画面監視スレッド"""
     
     detection_result = pyqtSignal(object)  # (detected, best) tuple
+    timer_frozen = pyqtSignal()  # タイマー停止検知
     error_occurred = pyqtSignal(str)
     
     def __init__(self, config: AppConfig, parent=None):
@@ -28,14 +31,23 @@ class MonitorThread(QThread):
         self.config = config
         self._running = False
         self._capture = ScreenCapture()
+        self._livesplit_capture = ScreenCapture()
+        
+        # タイマー監視用
+        self._last_timer_image = None
+        self._timer_frozen_since = None
     
     def run(self):
         self._running = True
         self._capture.set_target_window(self.config.target_window)
         
+        # LiveSplitキャプチャ設定
+        if self.config.auto_stop_enabled and self.config.livesplit_window:
+            self._livesplit_capture.set_target_window(self.config.livesplit_window)
+        
         while self._running:
             try:
-                # キャプチャ
+                # ゲーム画面キャプチャ
                 image = self._capture.capture()
                 if image is None:
                     self.error_occurred.emit("キャプチャに失敗しました")
@@ -51,19 +63,55 @@ class MonitorThread(QThread):
                 
                 self.detection_result.emit((detected, best))
                 
+                # LiveSplitタイマー監視
+                if self.config.auto_stop_enabled and self.config.livesplit_window:
+                    self._check_timer_frozen()
+                
             except Exception as e:
                 self.error_occurred.emit(str(e))
             
             self.msleep(self.config.check_interval_ms)
     
+    def _check_timer_frozen(self):
+        """LiveSplitタイマーが停止しているかチェック"""
+        try:
+            ls_image = self._livesplit_capture.capture()
+            if ls_image is None:
+                return
+            
+            # タイマー領域をクロップ
+            ta = self.config.timer_area
+            timer_image = crop_timer_area(ls_image, ta.x, ta.y, ta.width, ta.height)
+            
+            if self._last_timer_image is not None:
+                # 前回と比較
+                if images_are_similar(self._last_timer_image, timer_image):
+                    # 凍結中
+                    if self._timer_frozen_since is None:
+                        self._timer_frozen_since = time.time()
+                    else:
+                        frozen_ms = (time.time() - self._timer_frozen_since) * 1000
+                        if frozen_ms >= self.config.timer_freeze_ms:
+                            self.timer_frozen.emit()
+                else:
+                    # 動いている
+                    self._timer_frozen_since = None
+            
+            self._last_timer_image = timer_image
+        except Exception as e:
+            print(f"タイマー監視エラー: {e}")
+    
     def stop(self):
         self._running = False
         self.wait()
         self._capture.close()
+        self._livesplit_capture.close()
     
     def update_config(self, config: AppConfig):
         self.config = config
         self._capture.set_target_window(config.target_window)
+        if config.livesplit_window:
+            self._livesplit_capture.set_target_window(config.livesplit_window)
 
 
 class StatusIndicator(QFrame):
@@ -104,6 +152,7 @@ class MainWindow(QMainWindow):
         self._monitor_thread = None
         self._hotkey_manager = HotkeyManager()
         self._last_detection_time = 0
+        self._hotkey_count = 0  # ホットキー送信回数
         
         self._setup_ui()
         self._setup_tray()
@@ -334,8 +383,12 @@ class MainWindow(QMainWindow):
             self.detection_info.setText("⚠️ 検知エリアを設定してください (設定画面)")
             return
         
+        # ホットキーカウントをリセット
+        self._hotkey_count = 0
+        
         self._monitor_thread = MonitorThread(self.config)
         self._monitor_thread.detection_result.connect(self._on_detection)
+        self._monitor_thread.timer_frozen.connect(self._on_timer_frozen)
         self._monitor_thread.error_occurred.connect(self._on_error)
         self._monitor_thread.start()
         
@@ -449,12 +502,30 @@ class MainWindow(QMainWindow):
         # ホットキー送信
         if self._hotkey_manager.send_hotkey(detected.pattern.hotkey):
             self._last_detection_time = now
+            self._hotkey_count += 1  # カウント増加
             self.status_indicator.set_status("detected")
             self.detection_info.setText(
-                f"🎯 検知! {detected.pattern.name} → {detected.pattern.hotkey} 送信"
+                f"🎯 検知! {detected.pattern.name} → {detected.pattern.hotkey} 送信 (計{self._hotkey_count}回)"
             )
             
             QTimer.singleShot(500, lambda: self.status_indicator.set_status("running"))
+    
+    def _on_timer_frozen(self):
+        """LiveSplitタイマーが停止した"""
+        # 条件: 3回以上ホットキーを送信済み
+        if self._hotkey_count >= self.config.min_hotkey_count:
+            self.detection_info.setText(
+                f"⏸️ タイマー停止検知 ({self._hotkey_count}回送信済) - 自動停止しました"
+            )
+            self._stop_monitoring()
+            
+            # トレイ通知
+            self.tray_icon.showMessage(
+                "AutoSplit Screen Detector",
+                f"タイマー停止を検知し、監視を停止しました (計{self._hotkey_count}回送信)",
+                QSystemTrayIcon.MessageIcon.Information,
+                3000
+            )
     
     def _on_error(self, error: str):
         self.status_indicator.set_status("error")

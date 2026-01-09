@@ -539,6 +539,96 @@ class SettingsDialog(QDialog):
         timing_layout.addRow("監視間隔:", self.interval_spin)
         
         layout.addWidget(timing_group)
+        
+        # LiveSplit自動停止設定
+        livesplit_group = QGroupBox("🕐 LiveSplit自動停止")
+        livesplit_layout = QFormLayout(livesplit_group)
+        
+        self.auto_stop_cb = QCheckBox("タイマー停止で監視を自動停止")
+        self.auto_stop_cb.setChecked(self.config.auto_stop_enabled)
+        self.auto_stop_cb.setStyleSheet("color: white;")
+        livesplit_layout.addRow("", self.auto_stop_cb)
+        
+        self.livesplit_combo = NoWheelComboBox()
+        self.livesplit_combo.addItem("選択なし", None)
+        try:
+            windows = ScreenCapture.list_windows()
+            for win in windows:
+                self.livesplit_combo.addItem(win, win)
+            
+            if self.config.livesplit_window:
+                idx = self.livesplit_combo.findData(self.config.livesplit_window)
+                if idx >= 0:
+                    self.livesplit_combo.setCurrentIndex(idx)
+        except Exception as e:
+            print(f"ウィンドウ一覧取得エラー: {e}")
+        
+        self.livesplit_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #333;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 8px;
+                color: white;
+                min-width: 200px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #333;
+                color: white;
+                selection-background-color: #555;
+            }
+        """)
+        livesplit_layout.addRow("LiveSplitウィンドウ:", self.livesplit_combo)
+        
+        # タイマー領域設定
+        timer_area_layout = QHBoxLayout()
+        ta = self.config.timer_area
+        
+        self.timer_x_spin = NoWheelSpinBox()
+        self.timer_x_spin.setRange(0, 100)
+        self.timer_x_spin.setValue(ta.x)
+        self.timer_x_spin.setSuffix("%")
+        timer_area_layout.addWidget(QLabel("X:"))
+        timer_area_layout.addWidget(self.timer_x_spin)
+        
+        self.timer_y_spin = NoWheelSpinBox()
+        self.timer_y_spin.setRange(0, 100)
+        self.timer_y_spin.setValue(ta.y)
+        self.timer_y_spin.setSuffix("%")
+        timer_area_layout.addWidget(QLabel("Y:"))
+        timer_area_layout.addWidget(self.timer_y_spin)
+        
+        self.timer_w_spin = NoWheelSpinBox()
+        self.timer_w_spin.setRange(1, 100)
+        self.timer_w_spin.setValue(ta.width)
+        self.timer_w_spin.setSuffix("%")
+        timer_area_layout.addWidget(QLabel("幅:"))
+        timer_area_layout.addWidget(self.timer_w_spin)
+        
+        self.timer_h_spin = NoWheelSpinBox()
+        self.timer_h_spin.setRange(1, 100)
+        self.timer_h_spin.setValue(ta.height)
+        self.timer_h_spin.setSuffix("%")
+        timer_area_layout.addWidget(QLabel("高:"))
+        timer_area_layout.addWidget(self.timer_h_spin)
+        
+        livesplit_layout.addRow("タイマー領域:", timer_area_layout)
+        
+        self.min_hotkey_spin = NoWheelSpinBox()
+        self.min_hotkey_spin.setRange(1, 50)
+        self.min_hotkey_spin.setValue(self.config.min_hotkey_count)
+        self.min_hotkey_spin.setStyleSheet("""
+            QSpinBox {
+                background-color: #333;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 5px;
+                color: white;
+            }
+        """)
+        livesplit_layout.addRow("最低ホットキー回数:", self.min_hotkey_spin)
+        
+        layout.addWidget(livesplit_group)
         layout.addStretch()
         
         return widget
@@ -595,6 +685,15 @@ class SettingsDialog(QDialog):
         self.config.target_window = self.window_combo.currentData()
         self.config.cooldown_ms = self.cooldown_spin.value()
         self.config.check_interval_ms = self.interval_spin.value()
+        
+        # LiveSplit設定
+        self.config.auto_stop_enabled = self.auto_stop_cb.isChecked()
+        self.config.livesplit_window = self.livesplit_combo.currentData()
+        self.config.timer_area.x = self.timer_x_spin.value()
+        self.config.timer_area.y = self.timer_y_spin.value()
+        self.config.timer_area.width = self.timer_w_spin.value()
+        self.config.timer_area.height = self.timer_h_spin.value()
+        self.config.min_hotkey_count = self.min_hotkey_spin.value()
         
         save_config(self.config)
         self.settings_changed.emit(self.config)

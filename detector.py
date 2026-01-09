@@ -162,3 +162,72 @@ def extract_dominant_color(image: Image.Image) -> tuple[int, int, int]:
         return (palette[idx], palette[idx + 1], palette[idx + 2])
     
     return (128, 128, 128)
+
+
+def crop_timer_area(image: Image.Image, x_percent: int, y_percent: int,
+                    width_percent: int, height_percent: int) -> Image.Image:
+    """
+    タイマー領域をクロップ
+    
+    Args:
+        image: 元画像
+        x_percent, y_percent: 左上座標 (0-100%)
+        width_percent, height_percent: サイズ (0-100%)
+    
+    Returns:
+        クロップした画像
+    """
+    img_w, img_h = image.size
+    
+    x = int(x_percent / 100 * img_w)
+    y = int(y_percent / 100 * img_h)
+    w = int(width_percent / 100 * img_w)
+    h = int(height_percent / 100 * img_h)
+    
+    # 範囲チェック
+    x = max(0, min(x, img_w - 1))
+    y = max(0, min(y, img_h - 1))
+    w = max(1, min(w, img_w - x))
+    h = max(1, min(h, img_h - y))
+    
+    return image.crop((x, y, x + w, y + h))
+
+
+def images_are_similar(img1: Image.Image, img2: Image.Image, threshold: float = 0.99) -> bool:
+    """
+    2つの画像が類似しているかチェック
+    
+    Args:
+        img1, img2: 比較する画像
+        threshold: 類似度閾値 (0-1、1=完全一致)
+    
+    Returns:
+        類似していればTrue
+    """
+    if img1.size != img2.size:
+        return False
+    
+    # 小さくリサイズして比較（高速化）
+    size = (50, 20)
+    img1_small = img1.resize(size, Image.Resampling.LANCZOS)
+    img2_small = img2.resize(size, Image.Resampling.LANCZOS)
+    
+    # ピクセル比較
+    pixels1 = list(img1_small.getdata())
+    pixels2 = list(img2_small.getdata())
+    
+    if len(pixels1) != len(pixels2):
+        return False
+    
+    matching = 0
+    total = len(pixels1)
+    
+    for p1, p2 in zip(pixels1, pixels2):
+        # RGB距離
+        dist = math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2 + (p1[2]-p2[2])**2)
+        if dist < 30:  # 許容誤差
+            matching += 1
+    
+    similarity = matching / total
+    return similarity >= threshold
+
