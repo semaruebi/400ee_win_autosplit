@@ -44,3 +44,5 @@ timeline/
 │   └── color_picker.py     # カラーピッカー
 └── config.json      # ユーザー設定（自動生成）
 ```
+
+[![Downloads](https://img.shields.io/github/downloads/semaruebi/400ee_win_autosplit/total)](https://github.com/semaruebi/400ee_win_autosplit/releases)
