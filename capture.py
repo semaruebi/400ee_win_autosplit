@@ -112,3 +112,11 @@ class ScreenCapture:
 
     def close(self):
         pass
+
+
+def check_window_exists(title: Optional[str]) -> bool:
+    """指定されたタイトルのウィンドウが存在するかチェック"""
+    if not title:
+        return True # フルスクリーン判定
+    hwnd = win32gui.FindWindow(None, title)
+    return hwnd != 0

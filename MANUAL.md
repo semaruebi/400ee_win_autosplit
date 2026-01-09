@@ -96,3 +96,9 @@ AutoSplit Genshin Impact Elite Enemies Edition ね！
   - A. 本ソフトは個人開発のため、デジタル署名を行っていません。そのため、Windowsやブラウザのセキュリティ機能によって警告が表示されることがあります。
   - **ブラウザの場合**: 「...」メニューなどから「保存」→「詳細表示」→「保持する（このまま保存）」などを選択してください。
   - **実行時（Windows SmartScreen）**: 「WindowsによってPCが保護されました」と表示された場合、「詳細情報」をクリックし、「実行」ボタンを押してください。
+
+## 🏥 お問い合わせ・不具合報告
+機能追加要望や不具合報告はDiscordやTwitterにてお願いします！
+
+* **X (Twitter)**: [@_c_aca](https://x.com/_c_aca)
+* **Discord**: rnilideci
