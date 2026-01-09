@@ -188,7 +188,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("AutoSplit GIEEE")
         
         # アイコン設定
-        icon_path = os.path.join("assets", "icon.png")
+        if hasattr(sys, "_MEIPASS"):
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.abspath(".")
+            
+        icon_path = os.path.join(base_path, "assets", "icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
             

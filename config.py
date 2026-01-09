@@ -6,7 +6,16 @@ from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
-CONFIG_FILE = Path(__file__).parent / "config.json"
+import sys
+import os
+
+def get_app_dir():
+    """アプリケーションのベースディレクトリを取得（Exe化対応）"""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent
+
+CONFIG_FILE = get_app_dir() / "config.json"
 
 
 @dataclass

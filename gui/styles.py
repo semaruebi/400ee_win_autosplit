@@ -4,10 +4,19 @@ AutoSplit GIEEE - アプリケーションスタイル定義
 import os
 from PyQt6.QtGui import QFontDatabase, QFont
 
+import sys
+
 def load_fonts():
     """カスタムフォントをロードし、フォントファミリー名を返す"""
     # フォントファイルのパス
-    font_path = os.path.join("d:\\work\\timeline\\assets\\fonts\\ja-jp.ttf")
+    if hasattr(sys, "_MEIPASS"):
+        # PyInstallerでビルドされた場合
+        base_path = sys._MEIPASS
+    else:
+        # 通常実行時
+        base_path = os.path.abspath(".")
+        
+    font_path = os.path.join(base_path, "assets", "fonts", "ja-jp.ttf")
     
     font_family = "Segoe UI" # デフォルト
     
