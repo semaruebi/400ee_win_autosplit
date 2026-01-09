@@ -23,7 +23,7 @@ class MonitorThread(QThread):
     """画面監視スレッド"""
     
     detection_result = pyqtSignal(object)  # (detected, best) tuple
-    timer_frozen = pyqtSignal()  # タイマー停止検知
+    timer_status_changed = pyqtSignal(bool)  # True = 停止中, False = 動作中
     error_occurred = pyqtSignal(str)
     
     def __init__(self, config: AppConfig, parent=None):
@@ -36,13 +36,14 @@ class MonitorThread(QThread):
         # タイマー監視用
         self._last_timer_image = None
         self._timer_frozen_since = None
+        self._is_frozen = False
     
     def run(self):
         self._running = True
         self._capture.set_target_window(self.config.target_window)
         
         # LiveSplitキャプチャ設定
-        if self.config.auto_stop_enabled and self.config.livesplit_window:
+        if self.config.livesplit_window:
             self._livesplit_capture.set_target_window(self.config.livesplit_window)
         
         while self._running:
@@ -64,7 +65,7 @@ class MonitorThread(QThread):
                 self.detection_result.emit((detected, best))
                 
                 # LiveSplitタイマー監視
-                if self.config.auto_stop_enabled and self.config.livesplit_window:
+                if self.config.livesplit_window:
                     self._check_timer_frozen()
                 
             except Exception as e:
@@ -85,17 +86,24 @@ class MonitorThread(QThread):
             
             if self._last_timer_image is not None:
                 # 前回と比較
-                if images_are_similar(self._last_timer_image, timer_image):
+                is_currently_similar = images_are_similar(self._last_timer_image, timer_image)
+                
+                if is_currently_similar:
                     # 凍結中
                     if self._timer_frozen_since is None:
                         self._timer_frozen_since = time.time()
                     else:
                         frozen_ms = (time.time() - self._timer_frozen_since) * 1000
                         if frozen_ms >= self.config.timer_freeze_ms:
-                            self.timer_frozen.emit()
+                            if not self._is_frozen:
+                                self._is_frozen = True
+                                self.timer_status_changed.emit(True)
                 else:
                     # 動いている
                     self._timer_frozen_since = None
+                    if self._is_frozen:
+                        self._is_frozen = False
+                        self.timer_status_changed.emit(False)
             
             self._last_timer_image = timer_image
         except Exception as e:
@@ -120,7 +128,7 @@ class StatusIndicator(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(20, 20)
-        self._status = "stopped"
+        self._status = "stopped"  # stopped, running, detected, error
     
     def set_status(self, status: str):
         self._status = status
@@ -190,6 +198,12 @@ class MainWindow(QMainWindow):
         self.status_label = QLabel("停止中")
         self.status_label.setStyleSheet("color: #888;")
         header.addWidget(self.status_label)
+        
+        header.addSpacing(10)
+        
+        self.timer_status_label = QLabel("Timer: -")
+        self.timer_status_label.setStyleSheet("color: #555; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
+        header.addWidget(self.timer_status_label)
         
         layout.addLayout(header)
         
@@ -388,9 +402,12 @@ class MainWindow(QMainWindow):
         
         self._monitor_thread = MonitorThread(self.config)
         self._monitor_thread.detection_result.connect(self._on_detection)
-        self._monitor_thread.timer_frozen.connect(self._on_timer_frozen)
+        self._monitor_thread.timer_status_changed.connect(self._on_timer_status_changed)
         self._monitor_thread.error_occurred.connect(self._on_error)
         self._monitor_thread.start()
+        
+        self.timer_status_label.setText("Timer: Wait...")
+        self.timer_status_label.setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
         
         self.start_btn.setText("⏹️ 監視停止")
         self.start_btn.setStyleSheet("""
@@ -416,6 +433,9 @@ class MainWindow(QMainWindow):
         if self._monitor_thread:
             self._monitor_thread.stop()
             self._monitor_thread = None
+        
+        self.timer_status_label.setText("Timer: -")
+        self.timer_status_label.setStyleSheet("color: #555; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
         
         self.start_btn.setText("▶️ 監視開始")
         self.start_btn.setStyleSheet("""
@@ -509,23 +529,39 @@ class MainWindow(QMainWindow):
             )
             
             QTimer.singleShot(500, lambda: self.status_indicator.set_status("running"))
+        
+        # タイマー凍結中かつ規定回数送信済みなら停止 (オートストップ有効時)
+        if self.config.auto_stop_enabled and self._monitor_thread and self._monitor_thread._is_frozen:
+            if self._hotkey_count >= self.config.min_hotkey_count:
+                self._handle_auto_stop()
     
-    def _on_timer_frozen(self):
-        """LiveSplitタイマーが停止した"""
-        # 条件: 3回以上ホットキーを送信済み
-        if self._hotkey_count >= self.config.min_hotkey_count:
-            self.detection_info.setText(
-                f"⏸️ タイマー停止検知 ({self._hotkey_count}回送信済) - 自動停止しました"
-            )
-            self._stop_monitoring()
+    def _on_timer_status_changed(self, is_frozen: bool):
+        """LiveSplitタイマーの状態が変化した"""
+        if is_frozen:
+            self.timer_status_label.setText("Timer: FROZEN")
+            self.timer_status_label.setStyleSheet("color: #f44336; background-color: #3d1c1a; font-size: 11px; font-weight: bold; border: 1px solid #f44336; padding: 2px 6px; border-radius: 4px;")
             
-            # トレイ通知
-            self.tray_icon.showMessage(
-                "AutoSplit Screen Detector",
-                f"タイマー停止を検知し、監視を停止しました (計{self._hotkey_count}回送信)",
-                QSystemTrayIcon.MessageIcon.Information,
-                3000
-            )
+            # オートストップチェック
+            if self.config.auto_stop_enabled and self._hotkey_count >= self.config.min_hotkey_count:
+                self._handle_auto_stop()
+        else:
+            self.timer_status_label.setText("Timer: RUNNING")
+            self.timer_status_label.setStyleSheet("color: #4CAF50; background-color: #1a2d1b; font-size: 11px; font-weight: bold; border: 1px solid #4CAF50; padding: 2px 6px; border-radius: 4px;")
+    
+    def _handle_auto_stop(self):
+        """オートストップを実行"""
+        self.detection_info.setText(
+            f"⏸️ タイマー停止検知 ({self._hotkey_count}回送信済) - 自動停止しました"
+        )
+        self._stop_monitoring()
+        
+        # トレイ通知
+        self.tray_icon.showMessage(
+            "AutoSplit Screen Detector",
+            f"タイマー停止を検知し、監視を停止しました (計{self._hotkey_count}回送信)",
+            QSystemTrayIcon.MessageIcon.Information,
+            3000
+        )
     
     def _on_error(self, error: str):
         self.status_indicator.set_status("error")

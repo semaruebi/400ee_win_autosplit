@@ -546,7 +546,26 @@ class SettingsDialog(QDialog):
         
         self.auto_stop_cb = QCheckBox("タイマー停止で監視を自動停止")
         self.auto_stop_cb.setChecked(self.config.auto_stop_enabled)
-        self.auto_stop_cb.setStyleSheet("color: white;")
+        self.auto_stop_cb.setStyleSheet("""
+            QCheckBox {
+                color: white;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                border: 2px solid #555;
+                background-color: #333;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #4CAF50;
+                border-color: #4CAF50;
+            }
+            QCheckBox::indicator:checked::after {
+                content: '✓';
+            }
+        """)
         livesplit_layout.addRow("", self.auto_stop_cb)
         
         self.livesplit_combo = NoWheelComboBox()
@@ -580,39 +599,35 @@ class SettingsDialog(QDialog):
         """)
         livesplit_layout.addRow("LiveSplitウィンドウ:", self.livesplit_combo)
         
-        # タイマー領域設定
-        timer_area_layout = QHBoxLayout()
+        # タイマー領域設定 (GUIで選択)
+        timer_area_widget = QWidget()
+        timer_area_layout = QVBoxLayout(timer_area_widget)
+        timer_area_layout.setContentsMargins(0, 0, 0, 0)
+        
         ta = self.config.timer_area
+        self.timer_area_label = QLabel(
+            f"X:{ta.x}% Y:{ta.y}% 幅:{ta.width}% 高:{ta.height}%"
+        )
+        self.timer_area_label.setStyleSheet("color: #888; font-size: 12px;")
+        timer_area_layout.addWidget(self.timer_area_label)
         
-        self.timer_x_spin = NoWheelSpinBox()
-        self.timer_x_spin.setRange(0, 100)
-        self.timer_x_spin.setValue(ta.x)
-        self.timer_x_spin.setSuffix("%")
-        timer_area_layout.addWidget(QLabel("X:"))
-        timer_area_layout.addWidget(self.timer_x_spin)
+        select_timer_btn = QPushButton("📷 タイマー領域を選択...")
+        select_timer_btn.clicked.connect(self._select_timer_area)
+        select_timer_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                border: none;
+                padding: 8px;
+                border-radius: 4px;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        """)
+        timer_area_layout.addWidget(select_timer_btn)
         
-        self.timer_y_spin = NoWheelSpinBox()
-        self.timer_y_spin.setRange(0, 100)
-        self.timer_y_spin.setValue(ta.y)
-        self.timer_y_spin.setSuffix("%")
-        timer_area_layout.addWidget(QLabel("Y:"))
-        timer_area_layout.addWidget(self.timer_y_spin)
-        
-        self.timer_w_spin = NoWheelSpinBox()
-        self.timer_w_spin.setRange(1, 100)
-        self.timer_w_spin.setValue(ta.width)
-        self.timer_w_spin.setSuffix("%")
-        timer_area_layout.addWidget(QLabel("幅:"))
-        timer_area_layout.addWidget(self.timer_w_spin)
-        
-        self.timer_h_spin = NoWheelSpinBox()
-        self.timer_h_spin.setRange(1, 100)
-        self.timer_h_spin.setValue(ta.height)
-        self.timer_h_spin.setSuffix("%")
-        timer_area_layout.addWidget(QLabel("高:"))
-        timer_area_layout.addWidget(self.timer_h_spin)
-        
-        livesplit_layout.addRow("タイマー領域:", timer_area_layout)
+        livesplit_layout.addRow("タイマー領域:", timer_area_widget)
         
         self.min_hotkey_spin = NoWheelSpinBox()
         self.min_hotkey_spin.setRange(1, 50)
@@ -689,12 +704,27 @@ class SettingsDialog(QDialog):
         # LiveSplit設定
         self.config.auto_stop_enabled = self.auto_stop_cb.isChecked()
         self.config.livesplit_window = self.livesplit_combo.currentData()
-        self.config.timer_area.x = self.timer_x_spin.value()
-        self.config.timer_area.y = self.timer_y_spin.value()
-        self.config.timer_area.width = self.timer_w_spin.value()
-        self.config.timer_area.height = self.timer_h_spin.value()
+        # timer_areaはダイアログで直接更新されるのでそのまま
         self.config.min_hotkey_count = self.min_hotkey_spin.value()
         
         save_config(self.config)
         self.settings_changed.emit(self.config)
         self.accept()
+    
+    def _select_timer_area(self):
+        """タイマー領域選択ダイアログを開く"""
+        from gui.timer_area_selector import TimerAreaSelector
+        
+        window_title = self.livesplit_combo.currentData()
+        if not window_title:
+            QMessageBox.warning(self, "エラー", "先にLiveSplitウィンドウを選択してください。")
+            return
+        
+        dialog = TimerAreaSelector(window_title, self.config.timer_area, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            ta = dialog.get_timer_area()
+            self.config.timer_area = ta
+            self.timer_area_label.setText(
+                f"X:{ta.x}% Y:{ta.y}% 幅:{ta.width}% 高:{ta.height}%"
+            )
+
