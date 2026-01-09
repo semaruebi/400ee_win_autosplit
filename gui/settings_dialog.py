@@ -360,7 +360,7 @@ class SettingsDialog(QDialog):
     
     def _setup_ui(self):
         self.setWindowTitle("AutoSplit GIEEE - 設定")
-        self.setMinimumSize(700, 600)
+        self.setMinimumSize(540, 600)
         self.setStyleSheet("""
             QDialog {
                 background-color: #1e1e1e;
@@ -479,21 +479,8 @@ class SettingsDialog(QDialog):
         window_layout = QFormLayout(window_group)
         
         self.window_combo = NoWheelComboBox()
-        self.window_combo.addItem("フルスクリーン (プライマリモニター)", None)
-        
-        try:
-            windows = ScreenCapture.list_windows()
-            for win in windows:
-                self.window_combo.addItem(win, win)
-            
-            if self.config.target_window:
-                idx = self.window_combo.findData(self.config.target_window)
-                if idx >= 0:
-                    self.window_combo.setCurrentIndex(idx)
-        except Exception as e:
-            print(f"ウィンドウ一覧取得エラー: {e}")
-        
-        self.window_combo = NoWheelComboBox()
+        self.window_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.window_combo.setMinimumContentsLength(20)
         self.window_combo.addItem("フルスクリーン (プライマリモニター)", None)
         
         try:
@@ -586,6 +573,8 @@ class SettingsDialog(QDialog):
         livesplit_layout.addRow("", self.auto_stop_cb)
         
         self.livesplit_combo = NoWheelComboBox()
+        self.livesplit_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.livesplit_combo.setMinimumContentsLength(20)
         self.livesplit_combo.addItem("選択なし", None)
         try:
             windows = ScreenCapture.list_windows()
