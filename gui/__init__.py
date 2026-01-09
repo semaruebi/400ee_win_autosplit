@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - GUI Package
+AutoSplit GIEEE - GUI Package
 """
 from gui.main_window import MainWindow
 from gui.settings_dialog import SettingsDialog

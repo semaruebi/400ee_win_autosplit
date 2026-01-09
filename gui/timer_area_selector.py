@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - タイマー領域選択ダイアログ (ズーム対応版)
+AutoSplit GIEEE - タイマー領域選択ダイアログ
 """
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
@@ -40,7 +40,7 @@ class TimerAreaSelector(QDialog):
         layout = QVBoxLayout(self)
         
         # 説明
-        info = QLabel("ドラッグしてタイマー領域を選択してください (マウスホイールで拡大/縮小)")
+        info = QLabel("ドラッグしてメインタイマー領域を選択してください")
         info.setStyleSheet("color: #aaa; font-size: 13px;")
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(info)

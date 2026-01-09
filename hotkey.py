@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - ホットキー送信モジュール
+AutoSplit GIEEE - ホットキー送信モジュール
 """
 from pynput.keyboard import Key, Controller
 from typing import Optional
@@ -190,8 +190,26 @@ class HotkeyManager:
 
 # 使用可能なホットキーの一覧
 AVAILABLE_HOTKEYS = [
-    "numpad1", "numpad2", "numpad3", "numpad4", "numpad5",
-    "numpad6", "numpad7", "numpad8", "numpad9", "numpad0",
+    # 数字・テンキー
+    "numpad0", "numpad1", "numpad2", "numpad3", "numpad4",
+    "numpad5", "numpad6", "numpad7", "numpad8", "numpad9",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    
+    # ファンクションキー
     "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
-    "space", "enter", "tab",
+    "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24",
+    
+    # 特殊キー
+    "space", "enter", "tab", "backspace", "delete", "insert",
+    "home", "end", "pageup", "pagedown", "escape",
+    
+    # 矢印キー
+    "up", "down", "left", "right",
+    
+    # アルファベット
+    "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+    "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+    
+    # 記号 (一部)
+    "-", "=", "[", "]", "\\", ";", "'", ",", ".", "/",
 ]

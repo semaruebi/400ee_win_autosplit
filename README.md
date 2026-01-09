@@ -1,6 +1,6 @@
-# AutoSplit Screen Detector
+# AutoSplit GIEEE
 
-ゲームのロード画面を検知してLiveSplit向けにホットキーを自動送信する常駐型ツール
+ロード画面を検知してLiveSplit向けにホットキーを自動送信する常駐型ツール Genshin Impact Elite Enemies Edition
 
 ## 機能
 

@@ -1,7 +1,8 @@
 """
-AutoSplit Screen Detector - メインウィンドウ (システムトレイ常駐)
+AutoSplit GIEEE - メインウィンドウ (システムトレイ常駐)
 """
 import sys
+import os
 import time
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -17,13 +18,16 @@ from capture import ScreenCapture
 from detector import detect_all_patterns, DetectionResult, crop_timer_area, images_are_similar
 from hotkey import HotkeyManager
 from gui.settings_dialog import SettingsDialog
+from gui.styles import load_fonts, APP_STYLE_TEMPLATE
 
 
 class MonitorThread(QThread):
-    """画面監視スレッド"""
+    """
+    画面をじっと見つめ続ける監視役スレッドです。
+    """
     
-    detection_result = pyqtSignal(object)  # (detected, best) tuple
-    timer_status_changed = pyqtSignal(bool)  # True = 停止中, False = 動作中
+    detection_result = pyqtSignal(object)  # (detected, best) -> 何か見つけたら報告
+    timer_status_changed = pyqtSignal(bool)  # True = 凍結中, False = 動いてる
     error_occurred = pyqtSignal(str)
     
     def __init__(self, config: AppConfig, parent=None):
@@ -33,7 +37,7 @@ class MonitorThread(QThread):
         self._capture = ScreenCapture()
         self._livesplit_capture = ScreenCapture()
         
-        # タイマー監視用
+        # タイムライン監視用の変数たち
         self._last_timer_image = None
         self._timer_frozen_since = None
         self._is_frozen = False
@@ -42,20 +46,20 @@ class MonitorThread(QThread):
         self._running = True
         self._capture.set_target_window(self.config.target_window)
         
-        # LiveSplitキャプチャ設定
+        # LiveSplitもチェックするなら準備します
         if self.config.livesplit_window:
             self._livesplit_capture.set_target_window(self.config.livesplit_window)
         
         while self._running:
             try:
-                # ゲーム画面キャプチャ
+                # ゲーム画面をパシャリ
                 image = self._capture.capture()
                 if image is None:
-                    self.error_occurred.emit("キャプチャに失敗しました")
+                    self.error_occurred.emit("おっと、キャプチャに失敗しちゃいました...")
                     self.msleep(1000)
                     continue
                 
-                # 検知 (エリア方式)
+                # 指定のパターンがあるか探します
                 detected, best = detect_all_patterns(
                     image,
                     self.config.patterns,
@@ -64,32 +68,32 @@ class MonitorThread(QThread):
                 
                 self.detection_result.emit((detected, best))
                 
-                # LiveSplitタイマー監視
+                # LiveSplitの方もチラ見します
                 if self.config.livesplit_window:
                     self._check_timer_frozen()
                 
             except Exception as e:
-                self.error_occurred.emit(str(e))
+                self.error_occurred.emit(f"何かエラーが起きちゃいました: {str(e)}")
             
             self.msleep(self.config.check_interval_ms)
     
     def _check_timer_frozen(self):
-        """LiveSplitタイマーが停止しているかチェック"""
+        """LiveSplitのタイマーが止まってないかチェックします"""
         try:
             ls_image = self._livesplit_capture.capture()
             if ls_image is None:
                 return
             
-            # タイマー領域をクロップ
+            # タイマーの部分だけ切り抜きます
             ta = self.config.timer_area
             timer_image = crop_timer_area(ls_image, ta.x, ta.y, ta.width, ta.height)
             
             if self._last_timer_image is not None:
-                # 前回と比較
+                # さっきと比べて変わったかな？
                 is_currently_similar = images_are_similar(self._last_timer_image, timer_image)
                 
                 if is_currently_similar:
-                    # 凍結中
+                    # 動いてない...
                     if self._timer_frozen_since is None:
                         self._timer_frozen_since = time.time()
                     else:
@@ -99,7 +103,7 @@ class MonitorThread(QThread):
                                 self._is_frozen = True
                                 self.timer_status_changed.emit(True)
                 else:
-                    # 動いている
+                    # 動いてる！
                     self._timer_frozen_since = None
                     if self._is_frozen:
                         self._is_frozen = False
@@ -107,7 +111,7 @@ class MonitorThread(QThread):
             
             self._last_timer_image = timer_image
         except Exception as e:
-            print(f"タイマー監視エラー: {e}")
+            print(f"タイマー監視中に何か起きちゃいました: {e}")
     
     def stop(self):
         self._running = False
@@ -166,16 +170,30 @@ class MainWindow(QMainWindow):
         self._setup_tray()
     
     def _setup_ui(self):
-        self.setWindowTitle("AutoSplit Screen Detector")
+        # フォント読み込みとスタイル適用
+        font_family = load_fonts()
+        
+        app = QApplication.instance()
+        if app:
+            # テンプレートにフォント名を埋め込んで適用
+            style_sheet = APP_STYLE_TEMPLATE.format(font_family=font_family)
+            app.setStyleSheet(style_sheet)
+            
+            # アプリ全体のフォントも設定
+            font = app.font()
+            font.setFamily(font_family)
+            # フォントが見つかった場合は少し大きめにするなどの調整が可能
+            app.setFont(font)
+            
+        self.setWindowTitle("AutoSplit GIEEE")
+        
+        # アイコン設定
+        icon_path = os.path.join("assets", "icon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+            
         self.setMinimumSize(450, 400)
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #1e1e1e;
-            }
-            QLabel {
-                color: #ccc;
-            }
-        """)
+        # 個別のスタイルシートは削除 (グローバルスタイルを使用)
         
         central = QWidget()
         self.setCentralWidget(central)
@@ -186,7 +204,7 @@ class MainWindow(QMainWindow):
         # ヘッダー
         header = QHBoxLayout()
         
-        title = QLabel("🎮 AutoSplit Screen Detector")
+        title = QLabel("🎮 AutoSplit GIEEE")
         title.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
         header.addWidget(title)
         
@@ -196,64 +214,49 @@ class MainWindow(QMainWindow):
         header.addWidget(self.status_indicator)
         
         self.status_label = QLabel("停止中")
-        self.status_label.setStyleSheet("color: #888;")
+        self.status_label.setStyleSheet("color: #aaa; font-weight: bold;")
         header.addWidget(self.status_label)
         
         header.addSpacing(10)
         
         self.timer_status_label = QLabel("Timer: -")
-        self.timer_status_label.setStyleSheet("color: #555; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
+        self.timer_status_label.setObjectName("timerStatus")
+        self.timer_status_label.setStyleSheet("""
+            QLabel#timerStatus {
+                color: #777;
+                font-size: 11px;
+                font-weight: bold;
+                border: 1px solid #444;
+                padding: 4px 8px;
+                border-radius: 6px;
+                background-color: #222;
+            }
+        """)
         header.addWidget(self.timer_status_label)
         
         layout.addLayout(header)
         
-        # メインコントロール
+        # メインコントロールエリア
         control_frame = QFrame()
-        control_frame.setStyleSheet("""
-            QFrame {
-                background-color: #2a2a2a;
-                border-radius: 12px;
-                padding: 15px;
-            }
-        """)
+        control_frame.setObjectName("controlFrame")
         control_layout = QVBoxLayout(control_frame)
+        control_layout.setSpacing(15)
+        control_layout.setContentsMargins(20, 20, 20, 20)
         
         # 開始/停止ボタン
         btn_layout = QHBoxLayout()
         
-        self.start_btn = QPushButton("▶️ 監視開始")
-        self.start_btn.setFixedHeight(50)
+        self.start_btn = QPushButton("▶️ 監視スタート")
+        self.start_btn.setObjectName("primaryBtn")
+        self.start_btn.setMinimumHeight(50)
+        self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.start_btn.clicked.connect(self._toggle_monitoring)
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                border: none;
-                border-radius: 8px;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
         btn_layout.addWidget(self.start_btn)
         
         settings_btn = QPushButton("⚙️ 設定")
-        settings_btn.setFixedSize(80, 50)
+        settings_btn.setMinimumHeight(50)
+        settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         settings_btn.clicked.connect(self._open_settings)
-        settings_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #555;
-                border: none;
-                border-radius: 8px;
-                color: white;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #666;
-            }
-        """)
         btn_layout.addWidget(settings_btn)
         
         control_layout.addLayout(btn_layout)
@@ -261,19 +264,15 @@ class MainWindow(QMainWindow):
         
         # 一致率表示エリア
         match_frame = QFrame()
-        match_frame.setStyleSheet("""
-            QFrame {
-                background-color: #2a2a2a;
-                border-radius: 12px;
-                padding: 15px;
-            }
-        """)
+        match_frame.setObjectName("controlFrame")
+        # グローバルスタイル使用のためインラインスタイル削除
         match_layout = QVBoxLayout(match_frame)
         
         match_header = QHBoxLayout()
         match_header.addWidget(QLabel("📊 現在の一致率"))
+        match_header.addWidget(QLabel("📊 現在の一致率"))
         self.match_pattern_label = QLabel("")
-        self.match_pattern_label.setStyleSheet("color: #888;")
+        # スタイル定義済みなので削除
         match_header.addWidget(self.match_pattern_label)
         match_header.addStretch()
         match_layout.addLayout(match_header)
@@ -348,7 +347,7 @@ class MainWindow(QMainWindow):
         icon = QIcon(pixmap)
         
         self.tray_icon = QSystemTrayIcon(icon, self)
-        self.tray_icon.setToolTip("AutoSplit Screen Detector")
+        self.tray_icon.setToolTip("AutoSplit GIEEE")
         
         tray_menu = QMenu()
         
@@ -409,20 +408,10 @@ class MainWindow(QMainWindow):
         self.timer_status_label.setText("Timer: Wait...")
         self.timer_status_label.setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
         
-        self.start_btn.setText("⏹️ 監視停止")
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                border: none;
-                border-radius: 8px;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #da190b;
-            }
-        """)
+        self.start_btn.setText("⏹️ ストップ")
+        self.start_btn.setObjectName("dangerBtn")
+        # スタイルを強制再適用
+        self.start_btn.setStyleSheet(self.start_btn.styleSheet())
         
         self.status_indicator.set_status("running")
         self.status_label.setText("監視中")
@@ -435,22 +424,12 @@ class MainWindow(QMainWindow):
             self._monitor_thread = None
         
         self.timer_status_label.setText("Timer: -")
-        self.timer_status_label.setStyleSheet("color: #555; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
+        self.timer_status_label.setStyleSheet("color: #555; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px; background-color: #222;")
         
-        self.start_btn.setText("▶️ 監視開始")
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                border: none;
-                border-radius: 8px;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
+        self.start_btn.setText("▶️ 監視スタート")
+        self.start_btn.setObjectName("primaryBtn")
+        # スタイルを強制再適用
+        self.start_btn.setStyleSheet(self.start_btn.styleSheet())
         
         self.status_indicator.set_status("stopped")
         self.status_label.setText("停止中")
@@ -551,14 +530,14 @@ class MainWindow(QMainWindow):
     def _handle_auto_stop(self):
         """オートストップを実行"""
         self.detection_info.setText(
-            f"⏸️ タイマー停止検知 ({self._hotkey_count}回送信済) - 自動停止しました"
+            f"⏹️ タイマー停止検知 - 自動停止 (計{self._hotkey_count}回送信)"
         )
         self._stop_monitoring()
         
         # トレイ通知
         self.tray_icon.showMessage(
-            "AutoSplit Screen Detector",
-            f"タイマー停止を検知し、監視を停止しました (計{self._hotkey_count}回送信)",
+            "AutoSplit GIEEE",
+            f"タイマー停止を検知し、監視を停止しました。\n(計{self._hotkey_count}回送信)",
             QSystemTrayIcon.MessageIcon.Information,
             3000
         )
@@ -597,7 +576,7 @@ class MainWindow(QMainWindow):
         event.ignore()
         self.hide()
         self.tray_icon.showMessage(
-            "AutoSplit Screen Detector",
+            "AutoSplit GIEEE",
             "システムトレイで動作を継続しています",
             QSystemTrayIcon.MessageIcon.Information,
             2000

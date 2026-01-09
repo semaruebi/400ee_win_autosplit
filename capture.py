@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - 画面キャプチャモジュール
+AutoSplit GIEEE - 画面キャプチャモジュール
 """
 from PIL import Image, ImageGrab
 from typing import Optional

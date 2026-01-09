@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - エリア編集UI
+AutoSplit GIEEE - エリア編集UI
 """
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,

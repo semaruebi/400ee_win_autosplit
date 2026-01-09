@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - スポイト機能（色抽出）
+AutoSplit GIEEE - スポイト機能（色抽出）
 """
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,

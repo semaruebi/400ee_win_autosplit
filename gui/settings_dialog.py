@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - 設定ダイアログ
+AutoSplit GIEEE - 設定ダイアログ
 """
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -23,6 +23,60 @@ class NoWheelComboBox(QComboBox):
         event.ignore()  # ホイールを無視
 
 
+class HotkeyComboBox(NoWheelComboBox):
+    """ホットキー選択用ComboBox（リスト数増加 + キー入力対応）"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMaxVisibleItems(25) # リストをたくさん表示
+        
+    def keyPressEvent(self, event):
+        key = event.key()
+        # 無視するキー
+        if key in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
+             super().keyPressEvent(event)
+             return
+             
+        # マッピング
+        key_map = {
+            Qt.Key.Key_Backspace: "backspace",
+            Qt.Key.Key_Delete: "delete",
+            Qt.Key.Key_Return: "enter",
+            Qt.Key.Key_Enter: "enter",
+            Qt.Key.Key_Space: "space",
+            Qt.Key.Key_Tab: "tab",
+            Qt.Key.Key_Escape: "escape",
+            Qt.Key.Key_Up: "up",
+            Qt.Key.Key_Down: "down",
+            Qt.Key.Key_Left: "left",
+            Qt.Key.Key_Right: "right",
+            Qt.Key.Key_Home: "home",
+            Qt.Key.Key_End: "end",
+            Qt.Key.Key_PageUp: "pageup",
+            Qt.Key.Key_PageDown: "pagedown",
+            Qt.Key.Key_Insert: "insert",
+        }
+        
+        target_text = ""
+        
+        # ファンクションキー
+        if Qt.Key.Key_F1 <= key <= Qt.Key.Key_F24:
+            target_text = f"f{key - Qt.Key.Key_F1 + 1}"
+        elif key in key_map:
+            target_text = key_map[key]
+        elif event.text(): # ASCII文字など
+             target_text = event.text().lower()
+        
+        if target_text:
+            # 検索してセット (完全一致)
+            index = self.findText(target_text) # デフォルトでMatchExactlyではないが機能するはず
+            if index >= 0:
+                self.setCurrentIndex(index)
+                return
+        
+        super().keyPressEvent(event)
+
+
+
 class NoWheelSpinBox(QSpinBox):
     """ホイール操作を無効にしたSpinBox"""
     def wheelEvent(self, event: QWheelEvent):
@@ -41,16 +95,13 @@ class PatternEditor(QFrame):
         self._target_window = target_window
         self._setup_ui()
     
+    def _update_enabled_text(self, checked):
+        """チェックボックスのテキストを更新"""
+        self.enabled_cb.setText("ON" if checked else "OFF")
+        
     def _setup_ui(self):
         self.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("""
-            PatternEditor {
-                background-color: #2a2a2a;
-                border: 1px solid #444;
-                border-radius: 8px;
-                padding: 10px;
-            }
-        """)
+        self.setObjectName("PatternEditor")
         
         layout = QVBoxLayout(self)
         
@@ -59,36 +110,21 @@ class PatternEditor(QFrame):
         
         self.enabled_cb = QCheckBox()
         self.enabled_cb.setChecked(self.pattern.enabled)
-        self.enabled_cb.stateChanged.connect(self._on_enabled_changed)
+        # 初期表示更新
+        self._update_enabled_text(self.pattern.enabled)
+        self.enabled_cb.toggled.connect(self._on_enabled_changed)
+        self.enabled_cb.toggled.connect(self._update_enabled_text)
         header.addWidget(self.enabled_cb)
         
         self.name_edit = QLineEdit(self.pattern.name)
         self.name_edit.setPlaceholderText("パターン名")
         self.name_edit.textChanged.connect(self._on_name_changed)
-        self.name_edit.setStyleSheet("""
-            QLineEdit {
-                background-color: #333;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 5px;
-                color: white;
-                font-size: 14px;
-            }
-        """)
         header.addWidget(self.name_edit, 1)
         
-        delete_btn = QPushButton("🗑️")
-        delete_btn.setFixedSize(32, 32)
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #aa3333;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #cc4444;
-            }
-        """)
+        delete_btn = QPushButton("✖ 削除")
+        delete_btn.setObjectName("dangerBtn")
+        delete_btn.setMinimumHeight(32)
+        delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.clicked.connect(self.delete_requested.emit)
         header.addWidget(delete_btn)
         
@@ -96,7 +132,6 @@ class PatternEditor(QFrame):
         
         # 色設定
         color_layout = QHBoxLayout()
-        
         color_layout.addWidget(QLabel("色:"))
         
         self.color_preview = ColorPreview()
@@ -107,32 +142,10 @@ class PatternEditor(QFrame):
         self.color_edit = QLineEdit(self.pattern.color)
         self.color_edit.setFixedWidth(100)
         self.color_edit.textChanged.connect(self._on_color_changed)
-        self.color_edit.setStyleSheet("""
-            QLineEdit {
-                background-color: #333;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 5px;
-                color: white;
-                font-family: monospace;
-            }
-        """)
         color_layout.addWidget(self.color_edit)
         
         pick_btn = QPushButton("🎨 スポイト")
         pick_btn.clicked.connect(self._open_color_picker)
-        pick_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #444;
-                border: 1px solid #666;
-                border-radius: 4px;
-                padding: 5px 10px;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #555;
-            }
-        """)
         color_layout.addWidget(pick_btn)
         
         color_layout.addStretch()
@@ -145,15 +158,6 @@ class PatternEditor(QFrame):
         self.tolerance_spin.setRange(1, 200)
         self.tolerance_spin.setValue(self.pattern.tolerance)
         self.tolerance_spin.valueChanged.connect(self._on_tolerance_changed)
-        self.tolerance_spin.setStyleSheet("""
-            QSpinBox {
-                background-color: #333;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 5px;
-                color: white;
-            }
-        """)
         tolerance_layout.addWidget(self.tolerance_spin)
         tolerance_layout.addStretch()
         layout.addLayout(tolerance_layout)
@@ -166,24 +170,10 @@ class PatternEditor(QFrame):
         self.threshold_slider.setRange(0, 100)
         self.threshold_slider.setValue(self.pattern.threshold_percent)
         self.threshold_slider.valueChanged.connect(self._on_threshold_changed)
-        self.threshold_slider.setStyleSheet("""
-            QSlider::groove:horizontal {
-                background: #333;
-                height: 8px;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #4CAF50;
-                width: 18px;
-                margin: -5px 0;
-                border-radius: 9px;
-            }
-        """)
         threshold_layout.addWidget(self.threshold_slider)
         
         self.threshold_label = QLabel(f"{self.pattern.threshold_percent}%")
         self.threshold_label.setFixedWidth(50)
-        self.threshold_label.setStyleSheet("color: #4CAF50; font-size: 14px; font-weight: bold;")
         threshold_layout.addWidget(self.threshold_label)
         
         layout.addLayout(threshold_layout)
@@ -191,52 +181,18 @@ class PatternEditor(QFrame):
         # ホットキー
         hotkey_layout = QHBoxLayout()
         hotkey_layout.addWidget(QLabel("ホットキー:"))
-        self.hotkey_combo = NoWheelComboBox()
+        
+        self.hotkey_combo = HotkeyComboBox()
         self.hotkey_combo.addItems(AVAILABLE_HOTKEYS)
         if self.pattern.hotkey in AVAILABLE_HOTKEYS:
             self.hotkey_combo.setCurrentText(self.pattern.hotkey)
         self.hotkey_combo.currentTextChanged.connect(self._on_hotkey_changed)
-        self.hotkey_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #333;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 8px;
-                color: white;
-                font-size: 14px;
-                min-width: 120px;
-            }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #333;
-                color: white;
-                selection-background-color: #555;
-                selection-color: white;
-                font-size: 14px;
-                padding: 5px;
-            }
-        """)
         hotkey_layout.addWidget(self.hotkey_combo)
         hotkey_layout.addStretch()
         layout.addLayout(hotkey_layout)
         
         # エリア編集
         area_group = QGroupBox("検知エリア")
-        area_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #555;
-                border-radius: 6px;
-                margin-top: 10px;
-                padding-top: 10px;
-                color: #ccc;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-            }
-        """)
         area_layout = QVBoxLayout(area_group)
         
         self.area_editor = AreaEditorWidget()
@@ -247,8 +203,8 @@ class PatternEditor(QFrame):
         
         layout.addWidget(area_group)
     
-    def _on_enabled_changed(self, state):
-        self.pattern.enabled = state == Qt.CheckState.Checked.value
+    def _on_enabled_changed(self, checked):
+        self.pattern.enabled = checked
         self.pattern_changed.emit()
     
     def _on_name_changed(self, text):
@@ -314,7 +270,7 @@ class SettingsDialog(QDialog):
         self._setup_ui()
     
     def _setup_ui(self):
-        self.setWindowTitle("AutoSplit Screen Detector - 設定")
+        self.setWindowTitle("AutoSplit GIEEE - 設定")
         self.setMinimumSize(700, 600)
         self.setStyleSheet("""
             QDialog {
@@ -377,37 +333,21 @@ class SettingsDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
+        # キャンセルボタン
+        # キャンセルボタン
         cancel_btn = QPushButton("キャンセル")
+        cancel_btn.setMinimumHeight(44)
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #444;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #555;
-            }
-        """)
+        # スタイルはグローバルCSSにお任せ
         btn_layout.addWidget(cancel_btn)
         
-        save_btn = QPushButton("💾 保存")
+        # 保存ボタン（大事なボタンなので目立たせます）
+        save_btn = QPushButton("💾 設定を保存")
+        save_btn.setObjectName("primaryBtn")
+        save_btn.setMinimumHeight(44)
+        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         save_btn.clicked.connect(self._save)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                color: white;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
         btn_layout.addWidget(save_btn)
         
         layout.addLayout(btn_layout)
@@ -432,20 +372,11 @@ class SettingsDialog(QDialog):
         layout.addWidget(scroll)
         
         # パターン追加ボタン
+        # パターン追加ボタン
         add_btn = QPushButton("➕ パターンを追加")
+        add_btn.setObjectName("primaryBtn")
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.clicked.connect(self._add_new_pattern)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                border: none;
-                padding: 10px;
-                border-radius: 6px;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #1976D2;
-            }
-        """)
         layout.addWidget(add_btn)
         
         return widget
@@ -473,31 +404,26 @@ class SettingsDialog(QDialog):
         except Exception as e:
             print(f"ウィンドウ一覧取得エラー: {e}")
         
-        self.window_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #333;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 8px;
-                color: white;
-                min-width: 300px;
-                font-size: 14px;
-            }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #333;
-                color: white;
-                selection-background-color: #555;
-                selection-color: white;
-                font-size: 14px;
-                padding: 5px;
-            }
-        """)
+        self.window_combo = NoWheelComboBox()
+        self.window_combo.addItem("フルスクリーン (プライマリモニター)", None)
+        
+        try:
+            windows = ScreenCapture.list_windows()
+            for win in windows:
+                self.window_combo.addItem(win, win)
+            
+            if self.config.target_window:
+                idx = self.window_combo.findData(self.config.target_window)
+                if idx >= 0:
+                    self.window_combo.setCurrentIndex(idx)
+        except Exception as e:
+            print(f"ウィンドウ一覧取得エラー: {e}")
+        
+        # グローバルスタイル使用のためインラインスタイル削除
         window_layout.addRow("ウィンドウ:", self.window_combo)
         
         refresh_btn = QPushButton("🔄 更新")
+        refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         refresh_btn.clicked.connect(self._refresh_windows)
         window_layout.addRow("", refresh_btn)
         
@@ -540,12 +466,14 @@ class SettingsDialog(QDialog):
         
         layout.addWidget(timing_group)
         
-        # LiveSplit自動停止設定
-        livesplit_group = QGroupBox("🕐 LiveSplit自動停止")
+        # LiveSplit自動停止
+        livesplit_group = QGroupBox("⏱️ LiveSplit自動停止")
         livesplit_layout = QFormLayout(livesplit_group)
         
-        self.auto_stop_cb = QCheckBox("タイマー停止で監視を自動停止")
+        self.auto_stop_cb = QCheckBox()
         self.auto_stop_cb.setChecked(self.config.auto_stop_enabled)
+        self._update_autostop_text(self.config.auto_stop_enabled)
+        self.auto_stop_cb.toggled.connect(self._update_autostop_text)
         self.auto_stop_cb.setStyleSheet("""
             QCheckBox {
                 color: white;
@@ -608,23 +536,13 @@ class SettingsDialog(QDialog):
         self.timer_area_label = QLabel(
             f"X:{ta.x}% Y:{ta.y}% 幅:{ta.width}% 高:{ta.height}%"
         )
-        self.timer_area_label.setStyleSheet("color: #888; font-size: 12px;")
+        # スタイル削除
         timer_area_layout.addWidget(self.timer_area_label)
         
         select_timer_btn = QPushButton("📷 タイマー領域を選択...")
+        select_timer_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         select_timer_btn.clicked.connect(self._select_timer_area)
-        select_timer_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #555;
-                border: none;
-                padding: 8px;
-                border-radius: 4px;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #666;
-            }
-        """)
+        # スタイル削除 (グローバルスタイル使用)
         timer_area_layout.addWidget(select_timer_btn)
         
         livesplit_layout.addRow("タイマー領域:", timer_area_widget)
@@ -632,15 +550,7 @@ class SettingsDialog(QDialog):
         self.min_hotkey_spin = NoWheelSpinBox()
         self.min_hotkey_spin.setRange(1, 50)
         self.min_hotkey_spin.setValue(self.config.min_hotkey_count)
-        self.min_hotkey_spin.setStyleSheet("""
-            QSpinBox {
-                background-color: #333;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 5px;
-                color: white;
-            }
-        """)
+        # スタイル削除
         livesplit_layout.addRow("最低ホットキー回数:", self.min_hotkey_spin)
         
         layout.addWidget(livesplit_group)
@@ -727,4 +637,8 @@ class SettingsDialog(QDialog):
             self.timer_area_label.setText(
                 f"X:{ta.x}% Y:{ta.y}% 幅:{ta.width}% 高:{ta.height}%"
             )
+            
+    def _update_autostop_text(self, checked):
+        """自動停止のチェックボックステキストを更新"""
+        self.auto_stop_cb.setText("有効 (ON)" if checked else "無効 (OFF)")
 

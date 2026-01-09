@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - 色検知ロジック (エリア方式)
+AutoSplit GIEEE - 色検知ロジック (エリア方式)
 """
 import math
 from PIL import Image

@@ -1,5 +1,5 @@
 """
-AutoSplit Screen Detector - 設定管理モジュール
+AutoSplit GIEEE - 設定管理モジュール
 """
 import json
 from pathlib import Path
@@ -72,7 +72,7 @@ def get_default_config() -> AppConfig:
     return AppConfig(
         patterns=[
             PatternConfig(
-                name="暗い背景",
+                name="ﾛｰﾄﾞ画面(夜)",
                 color="#1C1C22",
                 tolerance=10,
                 threshold_percent=100,
@@ -80,7 +80,7 @@ def get_default_config() -> AppConfig:
                 areas=[]
             ),
             PatternConfig(
-                name="明るい背景",
+                name="ﾛｰﾄﾞ画面(昼)",
                 color="#FFFFFF",
                 tolerance=10,
                 threshold_percent=100,
