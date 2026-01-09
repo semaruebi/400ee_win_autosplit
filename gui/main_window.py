@@ -167,7 +167,7 @@ class MainWindow(QMainWindow):
         self._hotkey_count = 0  # ホットキー送信回数
         
         self._setup_ui()
-        self._setup_tray()
+
     
     def _setup_ui(self):
         # フォント読み込みとスタイル適用
@@ -327,51 +327,9 @@ class MainWindow(QMainWindow):
         
         layout.addStretch()
         
-        # フッター
-        footer = QLabel("最小化するとシステムトレイに常駐します")
-        footer.setStyleSheet("color: #666; font-size: 11px;")
-        footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(footer)
+
     
-    def _setup_tray(self):
-        """システムトレイの設定"""
-        # アイコン読み込み
-        icon_path = os.path.join("assets", "icon.png")
-        if os.path.exists(icon_path):
-            icon = QIcon(icon_path)
-        else:
-            # フォールバック
-            pixmap = QPixmap(32, 32)
-            pixmap.fill(QColor(76, 175, 80))
-            painter = QPainter(pixmap)
-            painter.setPen(QColor(255, 255, 255))
-            painter.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-            painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "A")
-            painter.end()
-            icon = QIcon(pixmap)
-        
-        self.tray_icon = QSystemTrayIcon(icon, self)
-        self.tray_icon.setToolTip("AutoSplit GIEEE")
-        
-        tray_menu = QMenu()
-        
-        show_action = QAction("表示", self)
-        show_action.triggered.connect(self._show_window)
-        tray_menu.addAction(show_action)
-        
-        self.tray_toggle_action = QAction("監視開始", self)
-        self.tray_toggle_action.triggered.connect(self._toggle_monitoring)
-        tray_menu.addAction(self.tray_toggle_action)
-        
-        tray_menu.addSeparator()
-        
-        quit_action = QAction("終了", self)
-        quit_action.triggered.connect(self._quit_app)
-        tray_menu.addAction(quit_action)
-        
-        self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.activated.connect(self._on_tray_activated)
-        self.tray_icon.show()
+
     
     def _update_patterns_display(self):
         """パターン一覧の表示を更新"""
@@ -420,7 +378,7 @@ class MainWindow(QMainWindow):
         
         self.status_indicator.set_status("running")
         self.status_label.setText("監視中")
-        self.tray_toggle_action.setText("監視停止")
+
         self.detection_info.setText("画面を監視しています...")
     
     def _stop_monitoring(self):
@@ -439,7 +397,7 @@ class MainWindow(QMainWindow):
         
         self.status_indicator.set_status("stopped")
         self.status_label.setText("停止中")
-        self.tray_toggle_action.setText("監視開始")
+
         self.detection_info.setText("監視が停止されました")
         self.match_progress.setValue(0)
     
@@ -540,13 +498,7 @@ class MainWindow(QMainWindow):
         )
         self._stop_monitoring()
         
-        # トレイ通知
-        self.tray_icon.showMessage(
-            "AutoSplit GIEEE",
-            f"タイマー停止を検知し、監視を停止しました。\n(計{self._hotkey_count}回送信)",
-            QSystemTrayIcon.MessageIcon.Information,
-            3000
-        )
+
     
     def _on_error(self, error: str):
         self.status_indicator.set_status("error")
@@ -566,24 +518,4 @@ class MainWindow(QMainWindow):
         self.config = config
         self._update_patterns_display()
     
-    def _show_window(self):
-        self.showNormal()
-        self.activateWindow()
-    
-    def _on_tray_activated(self, reason):
-        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            self._show_window()
-    
-    def _quit_app(self):
-        self._stop_monitoring()
-        QApplication.quit()
-    
-    def closeEvent(self, event):
-        event.ignore()
-        self.hide()
-        self.tray_icon.showMessage(
-            "AutoSplit GIEEE",
-            "システムトレイで動作を継続しています",
-            QSystemTrayIcon.MessageIcon.Information,
-            2000
-        )
+
