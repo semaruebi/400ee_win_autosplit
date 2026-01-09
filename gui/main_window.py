@@ -115,7 +115,11 @@ class MonitorThread(QThread):
     
     def stop(self):
         self._running = False
-        self.wait()
+        self._running = False
+        # タイムアウト付き待機 (2秒) -> ダメなら強制終了
+        if not self.wait(2000):
+            self.terminate()
+            self.wait()
         self._capture.close()
         self._livesplit_capture.close()
     

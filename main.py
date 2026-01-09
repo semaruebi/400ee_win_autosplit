@@ -58,7 +58,7 @@ def main():
     )
     
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)  # トレイ常駐のため
+    app.setQuitOnLastWindowClosed(True)
     
     # スタイル設定
     app.setStyle("Fusion")
@@ -66,7 +66,12 @@ def main():
     window = MainWindow()
     window.show()
     
-    sys.exit(app.exec())
+    app.exec()
+    # プロセス強制終了 (スレッド残留防止)
+    try:
+        os._exit(0)
+    except:
+        sys.exit(0)
 
 
 if __name__ == "__main__":
