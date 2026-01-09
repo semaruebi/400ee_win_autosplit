@@ -55,26 +55,11 @@ def get_area_average_color(image: Image.Image, x_percent: int, y_percent: int,
     x = max(0, min(x, img_w - area_size))
     y = max(0, min(y, img_h - area_size))
     
-    # エリア内のピクセルを集計
-    r_sum, g_sum, b_sum = 0, 0, 0
-    count = 0
-    
-    # サンプリング (パフォーマンスのため5px間隔)
-    for dx in range(0, area_size, 5):
-        for dy in range(0, area_size, 5):
-            px = x + dx
-            py = y + dy
-            if 0 <= px < img_w and 0 <= py < img_h:
-                pixel = image.getpixel((px, py))
-                r_sum += pixel[0]
-                g_sum += pixel[1]
-                b_sum += pixel[2]
-                count += 1
-    
-    if count == 0:
-        return (0, 0, 0)
-    
-    return (r_sum // count, g_sum // count, b_sum // count)
+    # 高速化: クロップして縮小することで平均色を取得
+    # Image.Resampling.BOX は平均画素法に近い処理を行うため平均色取得に適している
+    crop = image.crop((x, y, x + area_size, y + area_size))
+    pixel = crop.resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+    return pixel
 
 
 def detect_pattern(image: Image.Image, pattern: PatternConfig, 
@@ -151,7 +136,7 @@ def extract_dominant_color(image: Image.Image) -> tuple[int, int, int]:
     """
     画像から支配的な色を抽出（スポイト機能用）
     """
-    small = image.resize((100, 100), Image.Resampling.LANCZOS)
+    small = image.resize((100, 100), Image.Resampling.BILINEAR)
     quantized = small.quantize(colors=10, method=Image.Quantize.FASTOCTREE)
     palette = quantized.getpalette()
     
@@ -209,8 +194,8 @@ def images_are_similar(img1: Image.Image, img2: Image.Image, threshold: float = 
     
     # 小さくリサイズして比較（高速化）
     size = (50, 20)
-    img1_small = img1.resize(size, Image.Resampling.LANCZOS)
-    img2_small = img2.resize(size, Image.Resampling.LANCZOS)
+    img1_small = img1.resize(size, Image.Resampling.NEAREST)
+    img2_small = img2.resize(size, Image.Resampling.NEAREST)
     
     # ピクセル比較
     pixels1 = list(img1_small.getdata())
