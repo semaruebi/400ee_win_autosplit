@@ -259,12 +259,14 @@ class MainWindow(QMainWindow):
         self.start_btn.setObjectName("successBtn")
         self.start_btn.setMinimumHeight(50)
         self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.start_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus) # キーボード操作無効化
         self.start_btn.clicked.connect(self._toggle_monitoring)
         btn_layout.addWidget(self.start_btn)
         
         settings_btn = QPushButton("⚙️ 設定")
         settings_btn.setMinimumHeight(50)
         settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        settings_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus) # キーボード操作無効化
         settings_btn.clicked.connect(self._open_settings)
         btn_layout.addWidget(settings_btn)
         

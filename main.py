@@ -33,7 +33,7 @@ def run_as_admin():
             "runas",  # 管理者として実行
             sys.executable, 
             params, 
-            None, 
+            os.getcwd(), # カレントディレクトリを維持
             1  # SW_SHOWNORMAL
         )
         sys.exit(0)

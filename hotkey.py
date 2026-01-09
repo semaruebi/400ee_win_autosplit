@@ -17,9 +17,8 @@ class HotkeyManager:
         "f9": Key.f9, "f10": Key.f10, "f11": Key.f11, "f12": Key.f12,
         # テンキー
         "numpad0": Key.num_lock if hasattr(Key, 'num_lock') else None,  # フォールバック
-        "numpad1": None, "numpad2": None, "numpad3": None,
-        "numpad4": None, "numpad5": None, "numpad6": None,
-        "numpad7": None, "numpad8": None, "numpad9": None,
+        # numpad1-9 は NUMPAD_VK で処理するため削除
+
         # 特殊キー
         "space": Key.space,
         "enter": Key.enter,
@@ -48,6 +47,12 @@ class HotkeyManager:
         "numpad0": 0x60, "numpad1": 0x61, "numpad2": 0x62, "numpad3": 0x63,
         "numpad4": 0x64, "numpad5": 0x65, "numpad6": 0x66,
         "numpad7": 0x67, "numpad8": 0x68, "numpad9": 0x69,
+        # 演算子
+        "add": 0x6B,      # VK_ADD (+)
+        "subtract": 0x6D, # VK_SUBTRACT (-)
+        "multiply": 0x6A, # VK_MULTIPLY (*)
+        "divide": 0x6F,   # VK_DIVIDE (/)
+        "decimal": 0x6E,  # VK_DECIMAL (.)
     }
 
     def __init__(self):
@@ -146,46 +151,23 @@ class HotkeyManager:
             self.keyboard.release(mod)
 
     def _send_vk(self, vk_code: int):
-        """仮想キーコードでキーを送信"""
+        """仮想キーコードでキーを送信 (keybd_event使用)"""
         import ctypes
-        from ctypes import wintypes
         
         user32 = ctypes.windll.user32
         
-        # INPUT構造体
-        KEYEVENTF_KEYUP = 0x0002
-        INPUT_KEYBOARD = 1
+        # スキャンコード取得
+        scan_code = user32.MapVirtualKeyW(vk_code, 0)
         
-        class KEYBDINPUT(ctypes.Structure):
-            _fields_ = [
-                ("wVk", wintypes.WORD),
-                ("wScan", wintypes.WORD),
-                ("dwFlags", wintypes.DWORD),
-                ("time", wintypes.DWORD),
-                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
-            ]
-        
-        class INPUT(ctypes.Structure):
-            class _INPUT(ctypes.Union):
-                _fields_ = [("ki", KEYBDINPUT)]
-            _anonymous_ = ("_input",)
-            _fields_ = [("type", wintypes.DWORD), ("_input", _INPUT)]
+        # keybd_event(bVk, bScan, dwFlags, dwExtraInfo)
+        # KEYEVENTF_EXTENDEDKEY = 0x0001
+        # KEYEVENTF_KEYUP = 0x0002
         
         # キーダウン
-        inp_down = INPUT()
-        inp_down.type = INPUT_KEYBOARD
-        inp_down.ki.wVk = vk_code
-        inp_down.ki.dwFlags = 0
-        
+        user32.keybd_event(vk_code, scan_code, 0, 0)
+        time.sleep(0.05)
         # キーアップ
-        inp_up = INPUT()
-        inp_up.type = INPUT_KEYBOARD
-        inp_up.ki.wVk = vk_code
-        inp_up.ki.dwFlags = KEYEVENTF_KEYUP
-        
-        user32.SendInput(1, ctypes.byref(inp_down), ctypes.sizeof(INPUT))
-        time.sleep(0.01)
-        user32.SendInput(1, ctypes.byref(inp_up), ctypes.sizeof(INPUT))
+        user32.keybd_event(vk_code, scan_code, 0x0002, 0)
 
 
 # 使用可能なホットキーの一覧
@@ -193,6 +175,7 @@ AVAILABLE_HOTKEYS = [
     # 数字・テンキー
     "numpad0", "numpad1", "numpad2", "numpad3", "numpad4",
     "numpad5", "numpad6", "numpad7", "numpad8", "numpad9",
+    "add", "subtract", "multiply", "divide", "decimal",
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
     
     # ファンクションキー

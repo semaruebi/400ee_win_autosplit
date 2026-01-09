@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QSlider, QMessageBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QWheelEvent
+from PyQt6.QtGui import QColor, QWheelEvent, QKeySequence
 
 from config import AppConfig, PatternConfig, DetectionArea, load_config, save_config, hex_to_rgb, rgb_to_hex
 from capture import ScreenCapture
@@ -17,26 +17,89 @@ from gui.color_picker import ColorPickerWidget, ColorPreview
 from gui.area_editor import AreaEditorWidget
 
 
+
 class NoWheelComboBox(QComboBox):
     """ホイール操作を無効にしたComboBox"""
     def wheelEvent(self, event: QWheelEvent):
         event.ignore()  # ホイールを無視
 
 
-class HotkeyComboBox(NoWheelComboBox):
-    """ホットキー選択用ComboBox（リスト数増加 + キー入力対応）"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setMaxVisibleItems(25) # リストをたくさん表示
-        
+class HotkeyRecorder(QPushButton):
+    """キー入力を直接受け付けてホットキーとして登録するボタン"""
+    hotkey_changed = pyqtSignal(str)
+
+    def __init__(self, current_hotkey="", parent=None):
+        super().__init__(current_hotkey or "未設定", parent)
+        self.current_hotkey = current_hotkey
+        self.setCheckable(True)
+        self.toggled.connect(self._on_toggled)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_style()
+
+    def _on_toggled(self, checked):
+        if checked:
+            self.setText("キーを押してください...")
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #2a2a2a;
+                    border: 2px solid #2196F3;
+                    color: white;
+                    padding: 5px;
+                    border-radius: 4px;
+                }
+            """)
+        else:
+            self.setText(self.current_hotkey or "未設定")
+            self._update_style()
+
+    def _update_style(self):
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                border: 1px solid #555;
+                color: white;
+                padding: 5px;
+                border-radius: 4px;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+
+    def focusOutEvent(self, event):
+        """フォーカスが外れたらキャンセル"""
+        if self.isChecked():
+            self.setChecked(False)
+        super().focusOutEvent(event)
+
     def keyPressEvent(self, event):
+        if not self.isChecked():
+            return super().keyPressEvent(event)
+
         key = event.key()
-        # 無視するキー
+        
+        # キャンセルロジックはこのツールでは不要(Escも登録したい)
+        # 登録モードを終わるにはもう一度ボタンを押すUIでカバー
+        
+        # 修飾キーのみの場合は無視（組み合わせ待機）
         if key in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
-             super().keyPressEvent(event)
-             return
-             
-        # マッピング
+            return
+
+        # キー解析
+        key_name = self._get_key_name(event)
+        
+        if key_name:
+            self.current_hotkey = key_name
+            self.hotkey_changed.emit(key_name)
+            self.setChecked(False)
+
+    def _get_key_name(self, event):
+        key = event.key()
+        modifiers = event.modifiers()
+        text = ""
+        
+        # 特殊キーマッピング
         key_map = {
             Qt.Key.Key_Backspace: "backspace",
             Qt.Key.Key_Delete: "delete",
@@ -54,26 +117,50 @@ class HotkeyComboBox(NoWheelComboBox):
             Qt.Key.Key_PageUp: "pageup",
             Qt.Key.Key_PageDown: "pagedown",
             Qt.Key.Key_Insert: "insert",
+            Qt.Key.Key_Plus: "add",
+            Qt.Key.Key_Minus: "subtract",
+            Qt.Key.Key_Asterisk: "multiply",
+            Qt.Key.Key_Slash: "divide",
         }
+
+        # テンキー判定 (KeypadModifierが付いている場合)
+        is_keypad = bool(modifiers & Qt.KeyboardModifier.KeypadModifier)
         
-        target_text = ""
-        
-        # ファンクションキー
-        if Qt.Key.Key_F1 <= key <= Qt.Key.Key_F24:
-            target_text = f"f{key - Qt.Key.Key_F1 + 1}"
-        elif key in key_map:
-            target_text = key_map[key]
-        elif event.text(): # ASCII文字など
-             target_text = event.text().lower()
-        
-        if target_text:
-            # 検索してセット (完全一致)
-            index = self.findText(target_text) # デフォルトでMatchExactlyではないが機能するはず
-            if index >= 0:
-                self.setCurrentIndex(index)
-                return
-        
-        super().keyPressEvent(event)
+        if is_keypad:
+            # 0-9
+            if Qt.Key.Key_0 <= key <= Qt.Key.Key_9:
+                return f"numpad{key - Qt.Key.Key_0}"
+            # 演算子などは key_map でカバーできる場合もあるが、明示的に
+            if key == Qt.Key.Key_Plus: return "add"
+            if key == Qt.Key.Key_Minus: return "subtract"
+            if key == Qt.Key.Key_Asterisk: return "multiply"
+            if key == Qt.Key.Key_Slash: return "divide"
+            if key == Qt.Key.Key_Period: return "decimal"
+            if key == Qt.Key.Key_Enter: return "enter" # Numpad Enter
+
+        if key in key_map:
+            text = key_map[key]
+        elif Qt.Key.Key_F1 <= key <= Qt.Key.Key_F24:
+            text = f"f{key - Qt.Key.Key_F1 + 1}"
+        else:
+            # 通常の文字キー
+            text = QKeySequence(key).toString().lower()
+            if not text and event.text():
+                 text = event.text().lower()
+
+        # 修飾キーの付与
+        parts = []
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            parts.append("ctrl")
+        if modifiers & Qt.KeyboardModifier.AltModifier:
+            parts.append("alt")
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            # Shift+文字の場合は大文字になるが、ここでは分離して扱いたい場合もある
+            # pynput的には shift+a と A は別物扱いになることが多い
+            parts.append("shift")
+            
+        parts.append(text)
+        return "+".join(parts)
 
 
 
@@ -182,12 +269,14 @@ class PatternEditor(QFrame):
         hotkey_layout = QHBoxLayout()
         hotkey_layout.addWidget(QLabel("ホットキー:"))
         
-        self.hotkey_combo = HotkeyComboBox()
-        self.hotkey_combo.addItems(AVAILABLE_HOTKEYS)
-        if self.pattern.hotkey in AVAILABLE_HOTKEYS:
-            self.hotkey_combo.setCurrentText(self.pattern.hotkey)
-        self.hotkey_combo.currentTextChanged.connect(self._on_hotkey_changed)
-        hotkey_layout.addWidget(self.hotkey_combo)
+        # ホットキー (ボタン式に変更)
+        hotkey_layout = QHBoxLayout()
+        hotkey_layout.addWidget(QLabel("ホットキー:"))
+        
+        self.hotkey_btn = HotkeyRecorder(self.pattern.hotkey)
+        self.hotkey_btn.hotkey_changed.connect(self._on_hotkey_changed)
+        hotkey_layout.addWidget(self.hotkey_btn)
+        
         hotkey_layout.addStretch()
         layout.addLayout(hotkey_layout)
         
