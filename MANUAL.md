@@ -75,7 +75,7 @@ AutoSplit Genshin Impact Elite Enemies Edition ね！
 1. 設定画面を「保存」して閉じます。
 2. メイン画面の **緑色のボタン「▶ ﾛｰﾄﾞ監視ｽﾀｰﾄ！」** を押します。
 3. ボタンが **赤色の「■ ﾛｰﾄﾞ監視ｽﾄｯﾌﾟ」** に変わり、監視が始まります。
-4. ゲームをプレイします。設定したパターン（ロード画面）が検知されると、自動的にホットキーが送信され、タイマーが一時停止/再開します。
+4. ゲームをプレイします。設定したパターン（ロード画面）が検知されると、自動的にホットキーが送信され、タイマーがｽﾌﾟﾘｯﾄされます。
 
 ---
 
@@ -99,6 +99,8 @@ AutoSplit Genshin Impact Elite Enemies Edition ね！
 
 ## 🏥 お問い合わせ・不具合報告
 機能追加要望や不具合報告はDiscordやTwitterにてお願いします！
+匿名で意見送れるようにﾏｼｭﾏﾛも開設してみました。
 
 * **X (Twitter)**: [@_c_aca](https://x.com/_c_aca)
 * **Discord**: rnilideci
+* **ﾏｼｭﾏﾛ**: https://marshmallow-qa.com/r7v3wdxtw91vc6b

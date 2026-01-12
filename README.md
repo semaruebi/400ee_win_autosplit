@@ -1,4 +1,4 @@
-# AutoSplit GIEEE
+# AutoSplit GIEEE v1.1.1
 
 ロード画面を検知してLiveSplit向けにホットキーを自動送信する常駐型ツール Genshin Impact Elite Enemies Edition
 

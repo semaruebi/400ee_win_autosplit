@@ -488,10 +488,15 @@ class SettingsDialog(QDialog):
             for win in windows:
                 self.window_combo.addItem(win, win)
             
+            # 設定されているウィンドウがリストにない場合、維持する
             if self.config.target_window:
                 idx = self.window_combo.findData(self.config.target_window)
                 if idx >= 0:
                     self.window_combo.setCurrentIndex(idx)
+                else:
+                    # リストにないので追加して選択
+                    self.window_combo.addItem(f"{self.config.target_window} (未検出)", self.config.target_window)
+                    self.window_combo.setCurrentIndex(self.window_combo.count() - 1)
         except Exception as e:
             print(f"ウィンドウ一覧取得エラー: {e}")
         
@@ -681,6 +686,10 @@ class SettingsDialog(QDialog):
                 idx = self.window_combo.findData(current)
                 if idx >= 0:
                     self.window_combo.setCurrentIndex(idx)
+                else:
+                    # リストにないので追加して選択 (維持)
+                    self.window_combo.addItem(f"{current} (未検出)", current)
+                    self.window_combo.setCurrentIndex(self.window_combo.count() - 1)
         except Exception as e:
             print(f"ウィンドウ一覧取得エラー: {e}")
     
