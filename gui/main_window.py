@@ -403,7 +403,9 @@ class MainWindow(QMainWindow):
         # タイマースタート & ロガー初期化 (設定がONなら)
         if self.config.csv_logging_enabled:
             print("CSVロガー: ON - 新しいセッションを開始します")
-            self._logger = TodaysSplitLogger()
+            # パスが設定されていればそれを渡す
+            output_dir = self.config.csv_logging_path if self.config.csv_logging_path else None
+            self._logger = TodaysSplitLogger(output_dir=output_dir)
             self._logger.start_timer()
         else:
             print("CSVロガー: OFF")

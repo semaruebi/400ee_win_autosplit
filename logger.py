@@ -12,10 +12,22 @@ class TodaysSplitLogger:
     """
     その日の区間タイムとロード時間をペアにして記録するクラス
     """
-    def __init__(self):
-        # ファイル名は日時で作る (例: 20260118_102030_todays_split.csv)
+    def __init__(self, output_dir=None):
+        # ファイル名は日時で作る (例: 20260118_102030_GIEEE_split.csv)
         date_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.filename = f"{date_str}_todays_split.csv"
+        filename = f"{date_str}_GIEEE_split.csv"
+        
+        # 出力先ディレクトリの指定があれば結合
+        if output_dir:
+            # ディレクトリがなければ作る
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+                self.filename = os.path.join(output_dir, filename)
+            except Exception as e:
+                print(f"ディレクトリ作成エラー: {e}")
+                self.filename = filename # 失敗したらカレントに
+        else:
+            self.filename = filename
         
         # 状態管理用の変数
         self.last_split_time = None       # 前回のSplit時刻

@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QSpinBox, QGroupBox, QFormLayout, QLineEdit,
     QCheckBox, QTabWidget, QWidget, QScrollArea, QFrame,
-    QSlider, QMessageBox
+    QSlider, QMessageBox, QFileDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QWheelEvent, QKeySequence
@@ -576,6 +576,21 @@ class SettingsDialog(QDialog):
             }
         """)
         logging_layout.addRow("その日の記録 (CSV):", self.csv_logging_cb)
+        
+        # 保存先設定
+        path_layout = QHBoxLayout()
+        self.log_path_edit = QLineEdit(self.config.csv_logging_path)
+        self.log_path_edit.setPlaceholderText("保存先フォルダ (空欄でexeと同じ場所)")
+        self.log_path_edit.setReadOnly(False) # 手入力も許可
+        path_layout.addWidget(self.log_path_edit)
+        
+        browse_btn = QPushButton("参照...")
+        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        browse_btn.clicked.connect(self._browse_log_path)
+        path_layout.addWidget(browse_btn)
+        
+        logging_layout.addRow("保存先:", path_layout)
+        
         layout.addWidget(logging_group)
         
         # 誤検知フィルター設定
@@ -751,6 +766,7 @@ class SettingsDialog(QDialog):
         self.config.cooldown_ms = self.cooldown_spin.value()
         self.config.check_interval_ms = self.interval_spin.value()
         self.config.csv_logging_enabled = self.csv_logging_cb.isChecked()
+        self.config.csv_logging_path = self.log_path_edit.text().strip()
         self.config.min_duration_ms = self.min_duration_spin.value()
         
         # LiveSplit設定
@@ -787,4 +803,16 @@ class SettingsDialog(QDialog):
     def _update_logging_text(self, checked):
         """CSV記録のチェックボックステキストを更新"""
         self.csv_logging_cb.setText("有効 (ON)" if checked else "無効 (OFF)")
+    
+    def _browse_log_path(self):
+        """ログ保存先フォルダを選択"""
+        current_path = self.log_path_edit.text()
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "ログ保存先フォルダを選択",
+            current_path or ".",
+            QFileDialog.Option.ShowDirsOnly
+        )
+        if directory:
+            self.log_path_edit.setText(directory)
 
