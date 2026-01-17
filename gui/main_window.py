@@ -411,6 +411,7 @@ class MainWindow(QMainWindow):
             
         self._is_loading = False
         self._load_start_time = 0.0
+        self._pending_detection_start = None # 検知開始時刻（確定待ち）
         
         self.timer_status_label.setText("Timer: Wait...")
         self.timer_status_label.setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
@@ -499,15 +500,38 @@ class MainWindow(QMainWindow):
                     }
                 """)
         
-        # --- ロード時間計測ロジック ---
+        # --- ロード時間計測ロジック (誤検知防止付き) ---
         # 検知あり = ロード中
+        now_time = time.time()
+        
         if detected:
             if not self._is_loading:
-                # ロード開始
-                self._is_loading = True
-                self._load_start_time = time.time()
-                # print(f"ロード開始: {self._load_start_time}")
+                # まだロード中判定ではない場合
+                if self._pending_detection_start is None:
+                    # 初めて検知した -> 保留開始
+                    self._pending_detection_start = now_time
+                
+                # 保留時間が基準を超えたかチェック
+                elapsed_ms = (now_time - self._pending_detection_start) * 1000
+                if elapsed_ms >= self.config.min_duration_ms:
+                    # ロード開始確定！
+                    self._is_loading = True
+                    # 開始時刻は検知開始時刻にバックデートして記録
+                    self._load_start_time = self._pending_detection_start
+                    # print(f"ロード開始確定: {self._load_start_time} (保留: {elapsed_ms:.1f}ms)")
+                    
+                    # --- ホットキー送信 & ログ記録 (ここで行う) ---
+                    self._check_and_send_hotkey(detected, self._pending_detection_start)
+                    
+                    self._pending_detection_start = None
+            else:
+                # 既にロード中なら何もしない（継続）
+                pass
+                
         else:
+            # 検知なし
+            self._pending_detection_start = None # 保留はリセット
+            
             if self._is_loading:
                 # ロード終了
                 self._is_loading = False
@@ -520,28 +544,32 @@ class MainWindow(QMainWindow):
         
         if detected is None:
             return
+            
+        # クールダウンチェックなど（現在は_check_and_send_hotkey内で呼び出し元を制御しているため、ここはパス）
+        pass
         
+    def _check_and_send_hotkey(self, detected, detection_time):
+        """ホットキー送信判定と送信処理"""
         # クールダウンチェック
-        now = time.time()
-        if (now - self._last_detection_time) * 1000 < self.config.cooldown_ms:
+        # detection_time (ロード開始確定時刻) と前回送信時刻を比較
+        if (detection_time - self._last_detection_time) * 1000 < self.config.cooldown_ms:
             return
-        
+
         # ホットキー送信
         if self._hotkey_manager.send_hotkey(detected.pattern.hotkey):
-            self._last_detection_time = now
-            self._hotkey_count += 1  # カウント増加
+            self._last_detection_time = detection_time # 送信時刻ではなく「検知時刻」を基準に更新
+            self._hotkey_count += 1
             self.status_indicator.set_status("detected")
             self.detection_info.setText(
                 f"🎯 検知! {detected.pattern.name} → {detected.pattern.hotkey} 送信 (計{self._hotkey_count}回)"
             )
             
             # --- ログ記録 ---
-            # Splitしたということは、ここまでの区間が確定したということ
-            # 直前のロード時間も加算しておく必要があるかもしれないが、
-            # 「検知した瞬間にSplit」なら、この検知自体は「次の区間のロード」の始まりになるはず。
-            # したがって、ここまでの積み立て分を記録してリセットするのが正しい。
+            # ここで backdated time (detection_time) を渡して、正確な時刻で記録する
             if self._logger:
-                seg_time, load_time = self._logger.record_split()
+                # logger.record_split(split_time=detection_time) 
+                # ただし segment time は now - last_split なので、ここも detection_time を渡すべき。
+                seg_time, load_time = self._logger.record_split(split_time=detection_time)
                 print(f">>> Split! Segment: {seg_time:.2f}s, Load: {load_time:.2f}s")
             
             QTimer.singleShot(500, lambda: self.status_indicator.set_status("running"))

@@ -576,8 +576,29 @@ class SettingsDialog(QDialog):
             }
         """)
         logging_layout.addRow("その日の記録 (CSV):", self.csv_logging_cb)
-        
         layout.addWidget(logging_group)
+        
+        # 誤検知フィルター設定
+        filter_group = QGroupBox("誤検知フィルター設定")
+        filter_layout = QFormLayout()
+        filter_group.setLayout(filter_layout)
+        
+        self.min_duration_spin = NoWheelSpinBox()
+        self.min_duration_spin.setRange(0, 3000)
+        self.min_duration_spin.setValue(self.config.min_duration_ms)
+        self.min_duration_spin.setSuffix(" ms")
+        self.min_duration_spin.setStyleSheet("""
+            QSpinBox {
+                background-color: #333;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 5px;
+                color: white;
+            }
+        """)
+        filter_layout.addRow("誤検知無視時間:", self.min_duration_spin)
+        
+        layout.addWidget(filter_group)
         
         # LiveSplit自動停止
         livesplit_group = QGroupBox("⏱️ LiveSplit自動停止")
@@ -730,6 +751,7 @@ class SettingsDialog(QDialog):
         self.config.cooldown_ms = self.cooldown_spin.value()
         self.config.check_interval_ms = self.interval_spin.value()
         self.config.csv_logging_enabled = self.csv_logging_cb.isChecked()
+        self.config.min_duration_ms = self.min_duration_spin.value()
         
         # LiveSplit設定
         self.config.auto_stop_enabled = self.auto_stop_cb.isChecked()

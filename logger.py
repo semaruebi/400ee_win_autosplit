@@ -47,9 +47,14 @@ class TodaysSplitLogger:
             self.current_segment_load_time += duration
             # print(f"ロード時間を積み立て: +{duration:.3f}s (合計: {self.current_segment_load_time:.3f}s)")
 
-    def record_split(self) -> tuple[float, float]:
+    def record_split(self, split_time=None) -> tuple[float, float]:
         """
         Split（ホットキー送信）のタイミングで呼ぶ
+        
+        Args:
+            split_time: Splitした時刻 (Unix Timestamp). Noneの場合は現在時刻を使う
+                        誤検知フィルターで遅延した分を補正するために指定する
+        
         1. 前回のSplitからの経過時間（区間タイム）を計算
         2. 積み立てたロード時間と一緒に書き込み
         3. 次の区間のためにリセット
@@ -61,7 +66,7 @@ class TodaysSplitLogger:
             print("まだタイマーが始まっていません。start_timer() を呼んでください")
             return 0.0, 0.0
 
-        now = time.time()
+        now = split_time if split_time is not None else time.time()
         
         # 区間タイム = 現在時刻 - 前回時刻
         segment_time = now - self.last_split_time

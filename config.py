@@ -62,6 +62,7 @@ class AppConfig:
     
     # ロギング設定
     csv_logging_enabled: bool = True  # CSV記録を有効化
+    min_duration_ms: int = 140  # 誤検知無視時間 (これ以上検知して初めてロードとみなす)
     
     # LiveSplit監視設定
     livesplit_window: Optional[str] = None
