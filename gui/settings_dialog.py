@@ -531,7 +531,7 @@ class SettingsDialog(QDialog):
         timing_layout.addRow("クールダウン:", self.cooldown_spin)
         
         self.interval_spin = NoWheelSpinBox()
-        self.interval_spin.setRange(16, 1000)
+        self.interval_spin.setRange(1, 1000)
         self.interval_spin.setValue(self.config.check_interval_ms)
         self.interval_spin.setSuffix(" ms")
         self.interval_spin.setStyleSheet("""
@@ -546,6 +546,38 @@ class SettingsDialog(QDialog):
         timing_layout.addRow("監視間隔:", self.interval_spin)
         
         layout.addWidget(timing_group)
+
+        # ロギング設定
+        logging_group = QGroupBox("ロギング設定")
+        logging_layout = QFormLayout(logging_group)
+        
+        self.csv_logging_cb = QCheckBox()
+        self.csv_logging_cb.setChecked(self.config.csv_logging_enabled)
+        self._update_logging_text(self.config.csv_logging_enabled)
+        self.csv_logging_cb.toggled.connect(self._update_logging_text)
+        self.csv_logging_cb.setStyleSheet("""
+            QCheckBox {
+                color: white;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                border: 2px solid #555;
+                background-color: #333;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #2196F3;
+                border-color: #2196F3;
+            }
+            QCheckBox::indicator:checked::after {
+                content: '✓';
+            }
+        """)
+        logging_layout.addRow("その日の記録 (CSV):", self.csv_logging_cb)
+        
+        layout.addWidget(logging_group)
         
         # LiveSplit自動停止
         livesplit_group = QGroupBox("⏱️ LiveSplit自動停止")
@@ -697,6 +729,7 @@ class SettingsDialog(QDialog):
         self.config.target_window = self.window_combo.currentData()
         self.config.cooldown_ms = self.cooldown_spin.value()
         self.config.check_interval_ms = self.interval_spin.value()
+        self.config.csv_logging_enabled = self.csv_logging_cb.isChecked()
         
         # LiveSplit設定
         self.config.auto_stop_enabled = self.auto_stop_cb.isChecked()
@@ -728,4 +761,8 @@ class SettingsDialog(QDialog):
     def _update_autostop_text(self, checked):
         """自動停止のチェックボックステキストを更新"""
         self.auto_stop_cb.setText("有効 (ON)" if checked else "無効 (OFF)")
+
+    def _update_logging_text(self, checked):
+        """CSV記録のチェックボックステキストを更新"""
+        self.csv_logging_cb.setText("有効 (ON)" if checked else "無効 (OFF)")
 

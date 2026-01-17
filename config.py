@@ -60,6 +60,9 @@ class AppConfig:
     check_interval_ms: int = 50  # 監視間隔 (約20fps)
     area_size: int = 50  # エリアサイズ (px)
     
+    # ロギング設定
+    csv_logging_enabled: bool = True  # CSV記録を有効化
+    
     # LiveSplit監視設定
     livesplit_window: Optional[str] = None
     timer_area: TimerArea = field(default_factory=TimerArea)

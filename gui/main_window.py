@@ -19,6 +19,7 @@ from detector import detect_all_patterns, DetectionResult, crop_timer_area, imag
 from hotkey import HotkeyManager
 from gui.settings_dialog import SettingsDialog
 from gui.styles import load_fonts, APP_STYLE_TEMPLATE
+from logger import TodaysSplitLogger
 
 
 class MonitorThread(QThread):
@@ -169,6 +170,11 @@ class MainWindow(QMainWindow):
         self._hotkey_manager = HotkeyManager()
         self._last_detection_time = 0
         self._hotkey_count = 0  # ホットキー送信回数
+        
+        # ロガーの準備 (ここでは初期化のみ)
+        self._logger = None
+        self._is_loading = False # 現在ロード中（検知中）かどうか
+        self._load_start_time = 0.0 # ロード開始時刻
         
         self._setup_ui()
 
@@ -394,6 +400,18 @@ class MainWindow(QMainWindow):
         self._monitor_thread.error_occurred.connect(self._on_error)
         self._monitor_thread.start()
         
+        # タイマースタート & ロガー初期化 (設定がONなら)
+        if self.config.csv_logging_enabled:
+            print("CSVロガー: ON - 新しいセッションを開始します")
+            self._logger = TodaysSplitLogger()
+            self._logger.start_timer()
+        else:
+            print("CSVロガー: OFF")
+            self._logger = None
+            
+        self._is_loading = False
+        self._load_start_time = 0.0
+        
         self.timer_status_label.setText("Timer: Wait...")
         self.timer_status_label.setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: 1px solid #444; padding: 2px 6px; border-radius: 4px;")
         
@@ -441,7 +459,8 @@ class MainWindow(QMainWindow):
                 f"{best.matched_areas}/{best.total_areas}エリア一致 "
                 f"(閾値: {best.pattern.threshold_percent}%)"
             )
-            
+        
+        
             # プログレスバーの色を動的に変更
             if best.match_percent >= best.pattern.threshold_percent:
                 self.match_progress.setStyleSheet("""
@@ -480,6 +499,25 @@ class MainWindow(QMainWindow):
                     }
                 """)
         
+        # --- ロード時間計測ロジック ---
+        # 検知あり = ロード中
+        if detected:
+            if not self._is_loading:
+                # ロード開始
+                self._is_loading = True
+                self._load_start_time = time.time()
+                # print(f"ロード開始: {self._load_start_time}")
+        else:
+            if self._is_loading:
+                # ロード終了
+                self._is_loading = False
+                duration = time.time() - self._load_start_time
+                if self._logger:
+                    self._logger.add_load_time(duration)
+                # print(f"ロード終了: duration={duration:.3f}")
+        
+
+        
         if detected is None:
             return
         
@@ -496,6 +534,15 @@ class MainWindow(QMainWindow):
             self.detection_info.setText(
                 f"🎯 検知! {detected.pattern.name} → {detected.pattern.hotkey} 送信 (計{self._hotkey_count}回)"
             )
+            
+            # --- ログ記録 ---
+            # Splitしたということは、ここまでの区間が確定したということ
+            # 直前のロード時間も加算しておく必要があるかもしれないが、
+            # 「検知した瞬間にSplit」なら、この検知自体は「次の区間のロード」の始まりになるはず。
+            # したがって、ここまでの積み立て分を記録してリセットするのが正しい。
+            if self._logger:
+                seg_time, load_time = self._logger.record_split()
+                print(f">>> Split! Segment: {seg_time:.2f}s, Load: {load_time:.2f}s")
             
             QTimer.singleShot(500, lambda: self.status_indicator.set_status("running"))
         
